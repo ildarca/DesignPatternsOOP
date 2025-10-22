@@ -1,11 +1,11 @@
 
-# Принципы проектирования архитектуры
+## Принципы проектирования архитектуры
 
-## Повторное использование кода
+### Повторное использование кода
 
-##
+###
 
-## SOLID
+### SOLID
 
 <details>
 <summary>
@@ -358,4 +358,227 @@ UniversalController --> NewMachine
 
 </details>
 
-##
+## Паттерны проектирования
+
+### Порождающие паттерны
+
+Паттерны отвечают за удобное и безопасное создание новых объектов или даже целых семейт объектов.
+
+Factory Method
+Фабричный метод -
+
+Abstract Factory
+Абстрактная фабрика - это порождающий паттерн проектирования, который позволяет создавать семейства связных объектов, не привязываясь к конкретным классам создаваемых объектов.
+
+<details>
+<summary>
+  Проблема
+</summary>
+
+Представим, что мы пишем магазин автомобилей. Магазин занимается продажей семейства седанов, внедорожников, спорткаров от разных производителей: Toyota, BMW.
+
+На ранних этапах наш код создания автомобилей будет выглядить вот так:
+
+```cpp
+Car* CreateSedan(string brand) {
+  if (brand == "Toyota") {
+    return new ToyotaSedan();
+  } else if (brand == "BMW") {
+    return new BMWSedan();
+  }
+}
+
+Car* CreateSUV(string brand) {
+  if (brand == "Toyota") {
+    return new ToyotaSUV();
+  } else if (brand == "BMW") {
+    return new BMWSUV();
+  }
+}
+
+Car* CreateSportsCar(string brand) {
+  if (brand == "Toyota") {
+    return new ToyotaSportsCar();
+  } else if (brand == "BMW") {
+    return new BMWSportsCar();
+  }
+}
+```
+
+**Какие проблемы возникают?**
+
+1. Клиент заказывает автомобили `BMW`, но получает Седан(BMW 5 Series), Внедорожник(Toypta RAV4), Спорткар(BMW M8). Клиент растроится. А ошибка произошла во время создания автомобилей:
+
+```cpp
+Car* sedan = CreateSedan("BMW");      // BMW 5 Series
+Car* suv = CreateSUV("Toyota");       // Toypta RAV4 - ОШИБКА!
+Car* sports = CreateSportsCar("BMW"); // BMW M8
+```
+
+2. Если мы захотим расширить парк машин, то придется изменять существующий код создания авто.
+3. Дублирование кода.
+
+</details>
+
+<!-- <details>
+<summary> -->
+  Решение
+<!-- </summary> -->
+
+Для начала паттерн предлагает выделить общие интерфейсы для отдельных продуктов семейсв. Так каждое семейство автомобилей получат общий интерфейс `Седан`, `Внедорожник`, `Спорткар`. Например:
+
+```plantuml
+interface SUV {
+  + Drive()
+  + OffRoad()
+}
+
+class ToyotaSUV implements SUV{
+  ...
+  + Drive()
+  + OffRoad()
+}
+
+class BMWSUV implements SUV{
+  ...
+  + Drive()
+  + OffRoad()
+}
+```
+
+Далее необходимо создать **абстракную фабрику**. Это общий интерфейс, который будет содержать методы создания всех автомобилей семейства: `CrateSedan()`, `CreateSUV()`, `CreateSportCar()`.
+
+```plantuml
+interface CarFactory {
+  + CrateSedan()
+  + CreateSUV()
+  + CreateSportCar()
+}
+```
+
+Для каждого бренда семейства мы должны создать свою собственную фабрику, реализуя абстрактный интерфейс.
+
+```plantuml
+interface CarFactory {
+  + CrateSedan(): Sedan
+  + CreateSUV(): SUV
+  + CreateSportCar(): SportCar
+}
+
+class BMWFactory implements CarFactory {
+  ...
+  + CrateSedan(): Sedan
+  + CreateSUV(): SUV
+  + CreateSportCar(): SportCar
+}
+
+class ToyotaFactory implements CarFactory {
+  ...
+  + CrateSedan(): Sedan
+  + CreateSUV(): SUV
+  + CreateSportCar(): SportCar
+}
+```
+
+Клиентский код работает только через общие интерфейсы:
+
+- Клиент использует `CarFactory`, не зная конкретной фабрики
+- Клиент использует `Sedan`/`SUV`/`SportsCar`, не зная конкретных моделей
+- Не важно, какая фабрика - Toyota или BMW
+- Важно, что все автомобили совместимы и одного бренда
+
+**Пример:**
+
+```cpp
+// Клиенту безразлично, какая фабрика
+void ClientCode(CarFactory& factory) { // Любая фабрика: Toyota или BMW
+  // Фабрика сама "знает" какие модели создавать
+  Sedan* sedan = factory.CreateSedan();     // Toyota Camry или BMW 5 Series
+  SUV* suv = factory.CreateSUV();           // Toyota RAV4 или BMW X5
+}
+```
+
+Можно легко заменять фабрики, не меняя клиентский код. Все созданные автомобили гарантированно совместимы друг с другом.
+
+**Замечание:** фабрика создается отдельно - обычно через конфигурацию или системные настройки.
+
+**Общая диаграмма паттерна:**
+
+```plantuml
+@startuml
+
+interface AbstractFactory {
+  + CreateProductA(): AbstractProductA
+  + CreateProductB(): AbstractProductB
+}
+
+interface AbstractProductA {
+  + OperationA()
+}
+
+interface AbstractProductB {
+  + OperationB()
+}
+
+class ConcreteFactory1 implements AbstractFactory {
+  + CreateProductA(): AbstractProductA
+  + CreateProductB(): AbstractProductB
+}
+
+class ConcreteFactory2 implements AbstractFactory {
+  + CreateProductA(): AbstractProductA
+  + CreateProductB(): AbstractProductB
+}
+
+class ProductA1 {
+  + OperationA()
+}
+
+class ProductB1 {
+  + OperationB()
+}
+
+class ProductA2{
+  + OperationA()
+}
+
+class ProductB2 {
+  + OperationB()
+}
+
+ProductB2 ..|> AbstractProductB
+ProductA2 ...|> AbstractProductA
+
+
+ProductB1 ..|> AbstractProductB
+ProductA1 ...|> AbstractProductA
+
+
+ConcreteFactory1 --> ProductA1
+ConcreteFactory1 --> ProductB1
+
+ConcreteFactory2 --> ProductB2
+ConcreteFactory2 --> ProductA2
+
+
+class Client {
+  - factory: AbstractFactory
+  + Client(factory)
+  + operate()
+}
+
+Client --> AbstractFactory
+@enduml
+```
+
+</details>
+
+Builder
+Строитель
+
+Prototype
+Прототип
+
+Singleton
+Одиночка
+
