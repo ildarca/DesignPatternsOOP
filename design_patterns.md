@@ -581,7 +581,11 @@ Client --> AbstractFactory
 
 </details>
 
-Builder
+<details>
+<summary>
+  Builder
+</summary>
+
 Строитель - это порождающий паттерн проектирования, который позволяет создавать сложные объекты пошагово. Строитель дает возможность использовать один и тот же код строительства для получения разных представлений объектов.
 
 <details>
@@ -610,7 +614,10 @@ Car car("V6", 5, true, false, true, "automatic", "red", true, false, true, "leat
 
 </details>
 
-Решение
+<details>
+<summary>
+  Решение
+</summary>
 
 Паттерн Строитель предлагает вынести конструирование объекта за пределы его собственного класса, поручив это дело отдельным объектам, называемыми строителями.
 
@@ -647,6 +654,9 @@ classDiagram
     + SetSeats()
     + SetColor()
     + SetGPS()
+    + SetAirConditioning()
+    + SetSunroof()
+    + SetGPS()
   }
 
   class SedanBuilder {
@@ -655,6 +665,8 @@ classDiagram
     + SetSeats()
     + SetColor()
     + SetGPS()
+    + SetAirConditioning()
+    + SetSunroof()
     + GetResult() Car
   }
 
@@ -664,6 +676,8 @@ classDiagram
     + SetSeats()
     + SetColor()
     + SetGPS()
+    + SetAirConditioning()
+    + SetSunroof()
     + GetResult() Car
   }
 
@@ -673,6 +687,8 @@ classDiagram
     + SetSeats()
     + SetColor()
     + SetGPS()
+    + SetAirConditioning()
+    + SetSunroof()
     + GetResult() Car
   }
 
@@ -684,8 +700,100 @@ classDiagram
 Заметим, что классы-строители имеют метод `GetResult()`, который возвращает готовый автомобиль. Этот метод должен вызываться после выполнения всех шагов настройки и служит для получения финального результата.
 
 **Директор**
+Мы можем создать отдельный класс с вызовом методов строителей. Он сам будет задавать порядок строительства. Этот класс будет называться `Директор`. Данный класс особо полезен когда у нас есть несколько способой конструкирования объектов.
 
-Мы можем 
+Например, в случае автомобилей директор может определять различные комплектации:
+
+- **BasePackage** — базовая комплектация (только двигатель, трансмиссия и сиденья)
+- **ComfortPackage** — комфортная комплектация (добавляется GPS и кондиционер)
+- **PremiumPackage** — премиальная комплектация (все опции, включая люк)
+
+Директор не обязателен в реализации паттерна Строитель, можно обойтись и без него, но он позволяет полностью скрыть от клиентского кода процесс конструирования объектов.
+
+```mermaid
+%%{init: {'theme': 'dark'}}%%
+classDiagram
+  class CarDirector {
+    + ConstructBasePackage(CarBuilder) Car
+    + ConstructComfortPackage(CarBuilder) Car
+    + ConstructPremiumPackage(CarBuilder) Car
+  }
+```
+
+Клиент получает понятный и чистый интерфейс, через который может легко менять тип автомобиля и комплектацию, не разбираясь в сложностях процесса сборки.
+
+```cpp
+CarDirector director;
+
+SedanBuilder sedan_builder;
+SUVBuilder suv_builder;
+SportsCarBuilder sportscar_builder;
+
+Car* basic_sedan = director.ConstructBasePackage(sedasedan_buildernBuilder);
+Car* comfort_suv = director.ConstructComfortPackage(suv_builder);
+Car* premium_sports = director.ConstructPremiumPackage(sportscar_builder);
+```
+
+</details>
+
+**Общая диаграмма паттерна:**
+
+```mermaid
+%%{init: {'theme': 'dark'}}%%
+classDiagram
+
+class Client {
+  <Client>
+}
+
+class Director {
+  + ConstructMinimalViableProduct(builder: Builder) Product
+  + ConstructFullFeaturedProduct(builder: Builder) Product
+}
+
+class Builder {
+  <<interface>>
+  + BuildPartA()
+  + BuildPartB()
+  + GetResult() Product
+}
+
+class ConcreteBuilder1 {
+  - product: Product1
+  + BuildPartA()
+  + BuildPartB()
+  + GetResult() Product1
+}
+
+class ConcreteBuilder2 {
+  - product: Product2
+  + BuildPartA()
+  + BuildPartB()
+  + GetResult() Product2
+}
+
+class Product1 {
+  + operation()
+}
+
+class Product2 {
+  + operation()
+}
+
+
+Builder <|.. ConcreteBuilder1
+Builder <|.. ConcreteBuilder2
+
+Client ..> ConcreteBuilder1
+Client --> Director
+
+Director --> Builder
+
+ConcreteBuilder1 --> Product1
+ConcreteBuilder2 --> Product2
+```
+
+</details>
 
 Prototype
 Прототип
