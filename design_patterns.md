@@ -795,8 +795,309 @@ ConcreteBuilder2 --> Product2
 
 </details>
 
-Prototype
-Прототип
+<details>
+<summary>
+  Prototype
+</summary>
+
+Прототип - это порождающий паттерн проектирования, который позволяет создавать копии объектов, не вдаваясь в детали реализации.
+
+<details>
+<summary>
+  Проблема
+</summary>
+
+Представьте, что у нас есть автомобиль, который нужно скопировать. Казалось бы, что может быть проще — создать новый автомобиль такой же модели и скопировать все его характеристики.
+
+```mermaid
+%%{init: {'theme': 'dark'}}%%
+classDiagram
+class Car {
+  - engine_serial_number: string
+  - fuel_level: float
+  - owner_history: string[]
+  + Drive(distance: float) void
+}
+
+class Sedan {
+  ...
+  - trunk_capacity: float
+}
+
+class SUV {
+  ...
+  - offroad_mode: bool
+}
+
+Car <|-- Sedan
+Car <|-- SUV
+```
+
+Функция создания клона машины, копируя каждое его поле:
+
+```pseudocode
+function СloneCar(original_сar) {
+  // Приходится проверять конкретный тип авто
+  if (original_car is Sedan) {
+    new_сar = new Car()
+  }
+  else if (original_car is SUV) {
+    new_сar = new Car()
+  }
+
+  // Попытка скопировать приватные поля
+  new_сar.engine_serial_number = original_сar.engine_serial_number
+  new_сar.fuel_level = original_сar.fuel_level
+
+  // Копирование в зависимости от типа автомобиля
+  if (original_car is Sedan) {
+    new_car.trunk_capacity = original_car.trunk_capacity
+  }
+  else if (original_car is SUV) {
+    new_car.offroad_mode = original_car.offroad_mode
+  }
+
+  return new_сar
+}
+```
+
+Возникают несколько проблем в этом коде:
+
+1. **Нарушение инкапсуляции**
+У автомобиля есть множество внутренних характеристик, которые скрыты от внешнего мира. Мы не можем просто обратиться к серийному номеру двигателя engine_serial_number или текущему уровню топлива fuel_level — эти данные являются приватными и недоступны для прямого копирования извне.
+
+2. **Зависимость от конкретных классов**
+Наша функция копирования должна точно знать, с каким типом автомобиля она работает — является ли это седаном Sedan или внедорожником SUV. Мы не можем работать с автомобилями через общий интерфейс, а должны знать каждый конкретный класс и все его специфичные поля. Это создает жесткую связь между кодом копирования и конкретными реализациями автомобилей.
+
+</details>
+
+<details>
+<summary>
+  Решение
+</summary>
+
+Паттерн Прототип перекладывает задачу копирования на сами копируемые объекты. Вместо того чтобы пытаться скопировать автомобиль извне, мы предоставляем каждому автомобилю свою возможность создавать свою собственную копию.
+
+Это решает проблему инкапсуляции — поскольку метод копирования находится внутри класса автомобиля, он имеет полный доступ ко всем приватным полям, включая серийный номер двигателя и уровень топлива. Объект может скопировать своё внутреннее состояние, не раскрывая его внешнему миру.
+
+Одновременно решается и проблема зависимости от конкретных классов. Мы вводим общий интерфейс, который объявляет метод клонирования(обычно это метод `Clone()`). Теперь клиентскому коду не нужно знать конкретный тип автомобиля — достаточно того, что он поддерживает операцию клонирования. Мы можем работать с любым автомобилем через этот интерфейс, не привязываясь к конкретным классам Sedan или SUV.
+
+Объект, который копируют, называется **прототипом**.
+Паттерн Прототип открывает возможность использования предварительно настроенных прототипов. Мы можем создать **каталог** эталонных автомобилей с различными конфигурациями, и когда потребуется новый автомобиль, просто создать копию соответствующего прототипа. Это особенно полезно когда объекты имеют сложную структуру или требуют затратной настройки.
+
+Внеся исправления мы получим следующую диаграмму:
+
+```mermaid
+%%{init: {'theme':'dark'}}%%
+classDiagram
+class Prototype {
+  <<interface>>
+  Clone() Prototype
+}
+
+class Car {
+  - engine_serial_number: string
+  - fuel_level: float
+  - owner_history: string[]
+  + Drive(distance: float) void
+  + Clone() Car
+}
+
+class Sedan {
+  ...
+  - trunk_capacity: float
+  + Drive(distance: float) void
+  + Clone() Car
+}
+
+class SUV {
+  ...
+  - offroad_mode: bool
+  + Drive(distance: float) void
+  + Clone() Car
+}
+
+Prototype <|.. Car
+Car <|-- Sedan
+Car <|-- SUV
+```
+
+Клиенту достаточно будет вызывать метод `Clone` для копирования объектов:
+
+```pseudocode
+function ClientCode() {
+  // Создаем оригинальные автомобили
+  original_sedan = new Sedan()
+  original_suv = new SUV()
+
+  // Простое клонирование - один вызов метода
+  sedan_copy = original_sedan.Clone()
+  suv_copy = original_suv.Clone()
+
+  // Использование копий
+  sedan_copy.Drive(100)
+  suv_copy.Drive(200)
+}
+```
+
+Напишем реализацию с использованмем вышеупомянутого каталога.
+
+```mermaid
+%%{init: {'theme':'dark'}}%%
+classDiagram
+class Prototype {
+  <<interface>>
+  Clone() Prototype
+}
+
+class CarCatalog {
+  - car_items: Prototype[]
+  + RegitsterPrototype(name: String, p: Prototype)
+  + GetByName(name: String) Prototype
+}
+
+class Car {
+  - engine_serial_number: string
+  - fuel_level: float
+  - owner_history: string[]
+  + Drive(distance: float) void
+  + Clone() Prototype
+}
+
+class Sedan {
+  ...
+  - trunk_capacity: float
+  + Drive(distance: float) void
+  + Clone() Car
+}
+
+class SUV {
+  ...
+  - offroad_mode: bool
+  + Drive(distance: float) void
+  + Clone() Car
+}
+
+Prototype <--o CarCatalog
+Prototype <|.. Car
+Car <|-- Sedan
+Car <|-- SUV
+```
+
+Клиентский код с использованием каталога:
+
+```pseudocode
+function ClientCode() {
+  // Создаем каталог прототипов
+  catalog = new CarCatalog()
+
+  // Создаем и регистрируем прототипы в каталоге
+  sedan_prototype = new Sedan()
+  sedan_prototype.SetEngine("V6")
+  sedan_prototype.SetFuelLevel(100)
+  catalog.RegisterPrototype("family_sedan", sedan_prototype)
+
+  suv_prototype = new SUV()
+  suv_prototype.SetEngine("V8")
+  suv_prototype.SetOffroadMode(true)
+  catalog.RegisterPrototype("adventure_suv", suv_prototype)
+
+  // Клиент получает прототипы из каталога и клонирует их
+  sedan_prototype = catalog.GetByName("family_sedan")
+  suv_prototype = catalog.GetByName("adventure_suv")
+
+  // Создаем копии автомобилей
+  my_sedan = sedan_prototype.Clone()
+  my_suv = suv_prototype.Clone()
+
+  // Используем автомобили
+  my_sedan.Drive(150)
+  my_suv.Drive(200)
+}
+```
+
+За счет этого облегчается доступ к часто используемым прототипам.
+
+Простейшая реализация каталога может быть построена на основе хеш-таблицы, где ключом выступает имя прототипа, а значением — сам объект-прототип. Однако для удобства поиска прототипы можно маркировать не только условными именами, но и другими критериями: типом кузова, классом оснащения и другими характеристиками.
+
+</details>
+
+**Общая диаграмма паттерна без каталога:**
+
+```mermaid
+%%{init: {'theme': 'dark'}}%%
+classDiagram
+
+class Client {
+  <Client>
+}
+
+class Prototype {
+  <<interface>>
+  + Сlone() Prototype
+}
+
+class ConcretePrototype {
+  - field1
+  + ConcretePrototype(prototype)
+  + Сlone() Prototype
+}
+
+class SubclassPrototype {
+  - field2
+  + SubclassPrototype(prototype)
+  + Сlone() Prototype
+}
+
+Client --> Prototype
+Prototype <|.. ConcretePrototype
+ConcretePrototype <|-- SubclassPrototype
+
+note for Client "copy = existing.Clone()"
+```
+
+**Общая диаграмма паттерна с каталогом:**
+
+```mermaid
+%%{init: {'theme': 'dark'}}%%
+classDiagram
+
+class Client {
+  <Client>
+}
+
+class PrototypeRegistry {
+  - items: Prototype[]
+  + AddItem(id: String, p: Prototype)
+  + GetById(id: String) Prototype
+}
+
+class Prototype {
+  <<interface>>
+  + Сlone() Prototype
+}
+
+class ConcretePrototype {
+  - field1
+  + ConcretePrototype(prototype)
+  + Сlone() Prototype
+}
+
+class SubclassPrototype {
+  - field2
+  + SubclassPrototype(prototype)
+  + Сlone() Prototype
+}
+
+Client --> PrototypeRegistry
+PrototypeRegistry o--> Prototype
+Prototype <|.. ConcretePrototype
+ConcretePrototype <|-- SubclassPrototype
+
+note for Client "copy = existing.Clone()"
+```
+
+</details>
 
 Singleton
 Одиночка
