@@ -1099,6 +1099,176 @@ note for Client "copy = existing.Clone()"
 
 </details>
 
-Singleton
-Одиночка
 
+<details>
+<summary>
+  Singleton
+</summary>
+
+Одиночка - это порождающий паттерн проектирования, который гарантирует, что у класса будет только один экземпляр, и предоставляет глобальную точку доступа.
+
+<details>
+<summary>
+  Проблема
+</summary>
+
+Представим, что мы разрабатываем систему логирования для приложения. Разные модули программы должны записывать логи в один и тот же файл, с одинаковыми настройками формата и уровня детализации.
+
+```mermaid
+%%{init: {'theme': 'dark'}}%%
+classDiagram
+class Logger {
+  - log_file: string
+  - log_level: string
+  - format: string
+  + WriteLog(message: string) void
+  + SetLogLevel(level: string) void
+}
+```
+
+Если каждый модуль создает свой собственный логгер, возникают проблемы:
+
+```pseudocode
+class AuthService {
+  function Login() {
+    auth_logger = new Logger()  // Создается первый экземпляр
+    auth_logger.SetLogLevel("DEBUG")
+    auth_logger.WriteLog("Login attempt")
+    // логика аутентификации...
+    auth_logger.WriteLog("Login successful")
+  }
+}
+
+class DatabaseService {
+  function Query() {
+    db_logger = new Logger()  // Создается второй экземпляр
+    db_logger.SetLogLevel("ERROR")
+    db_logger.WriteLog("Executing database query")
+    // логика запроса...
+    db_logger.WriteLog("Query completed")
+  }
+}
+
+class PaymentService {
+  function ProcessPayment() {
+    payment_logger = new Logger() // Избыточное потребление ресурсов!
+    payment_logger.WriteLog("Payment processing started")
+    // логика платежа...
+    payment_logger.WriteLog("Payment processed successfully")
+  }
+}
+```
+
+**Возникают следующие проблемы:**
+
+1. **Дублирование функциональности и избыточное потребление ресурсов** - каждый модуль создает собственный экземпляр логгера, хотя все они выполняют идентичные задачи. Это приводит к нерациональному использованию памяти и вычислительных ресурсов без какого-либо преимущества.
+
+2. **Сложность поддержания согласованного состояния** - при изменении требований к логированию (новый формат, другой уровень детализации) необходимо обновлять каждый экземпляр логгера отдельно. Это усложняет обслуживание системы.
+
+</details>
+
+<details>
+<summary>
+  Решение
+</summary>
+
+Паттерн Одиночка решает эти две проблемы:
+
+**1. Гарантирует наличие единственного экземпляра класса.**
+Скрывает конструктор и предоставляет статический метод для получения экземпляра `GetInstance()`. При первом вызове создаётся объект, а при последующих — возвращается ранее созданный. Это гарантирует, что все модули работают с одним логгером, избегая конфликтов и несогласованных настроек.
+
+**2. Предоставляет глобальную точку доступа.**
+Статический метод `GetInstance()` служит контролируемой глобальной точкой доступа. В отличие от обычной глобальной переменной, экземпляр защищён от случайной перезаписи, а логика инициализации инкапсулирована в одном месте. Это упрощает использование логгера из любого модуля, обеспечивая централизованное управление.
+
+```mermaid
+%%{init: {'theme': 'dark'}}%%
+classDiagram
+
+class Client {
+  <Client>
+}
+
+class Logger {
+  - static instance: Logger
+  - log_file: string
+  - log_level: string
+  - format: string
+
+  - Logger()  // Приватный конструктор
+  + static GetInstance() Logger
+  + WriteLog(message: string) void
+  + SetLogLevel(level: string) void
+}
+
+Client --> Logger
+```
+
+Метод `GetInstance()` будет выполнять слудующий код:
+
+```pseudocode
+if (instance == null) {
+  instance = new Logger()
+}
+return instance
+```
+
+Клиенту будет получать экземпляр логгера через `GetInstance()`. Этот метод обеспечивает контролируемый доступ к единственному экземпляру, скрывая сложность его создания и инициализации от клиента:
+
+```pseudocode
+// При старте приложения
+function InitializeApplication() {
+  logger = Logger.GetInstance()
+  logger.SetLogLevel("DEBUG")
+  logger.WriteLog("Application initialized")
+}
+
+class AuthService {
+  function Login() {
+    logger = Logger.GetInstance()  // Тот же логгер
+    logger.WriteLog("Login attempt")
+    // логика аутентификации...
+    logger.WriteLog("Login successful")
+  }
+}
+
+class DatabaseService {
+  function Query() {
+    logger = Logger.GetInstance()  // Тот же логгер
+    logger.WriteLog("Executing database query")
+    // логика запроса...
+    logger.WriteLog("Query completed")
+  }
+}
+
+class PaymentService {
+  function ProcessPayment() {
+    logger = Logger.GetInstance()  // Тот же логгер
+    logger.WriteLog("Payment processing started")
+    // логика платежа...
+    logger.WriteLog("Payment processed successfully")
+  }
+}
+```
+
+</details>
+
+**Общая диаграмма паттерна:**
+
+```mermaid
+%%{init: {'theme': 'dark'}}%%
+classDiagram
+
+class Client {
+  <Client>
+}
+
+class Singleton {
+  - instance: Singleton
+  - Singleton()
+  + GetInstance() Singleton
+}
+
+Client --> Singleton
+```
+
+</details>
