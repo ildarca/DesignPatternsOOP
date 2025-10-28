@@ -670,11 +670,242 @@ Component <--o Composite
 
 </details>
 
-Decorator
+<details>
+<summary>
+  Decorator
+</summary>
+
 **Декоратор** — это структурный паттерн проектирования, который позволяет динамически добавлять объектам новую функциональность, оборачивая их в полезные «обёртки».
 
-Проблема
-Решение
+<details>
+<summary>
+  Проблема
+</summary>
+
+Мы работаем над системой для кофейни, которая позволяет формировать заказы на кофе. Основой системы является класс `Coffee` с методом `GetDescription()`, который возвращает описание напитка, и методом `GetCost()`, который рассчитывает его стоимость.
+
+Изначально в кофейне был только базовый кофе без молока и добавок.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+class Coffee {
+  ...
+  + GetDescription() String
+  + GetCost() double
+}
+```
+
+Сторонние программы (терминалы заказов) создавали объекты кофе и использовали их для формирования заказов.
+
+Одного базового напитка клиентам мало. Некоторые хотели бы добавлять в кофе больше молока. Другие просили карамельный сироп. Третьи хотели взбитые сливки или шоколад.
+
+Каждый тип добавки живёт в собственном подклассе. Сначала мы добавим каждый из этих типов добавок в программу, унаследовав их от базового класса `Coffee`.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+Coffee <|-- MilkCoffee
+Coffee <|-- CaramelCoffee
+Coffee <|-- WhippedCreamCoffee
+Coffee <|-- ChocolateCoffee
+```
+
+Теперь клиент выбирал один тип напитка с одной добавкой, который и использовался в заказе.
+
+Но многие клиенты хотели бы заказать, например, "латте с молоком, карамельным сиропом и взбитыми сливками"!
+
+Попытка реализовать все возможные комбинации добавок через наследование приведёт к созданию громоздкой и неудобной иерархии классов, количество которых растёт в геометрической прогрессии.
+
+</details>
+
+<details>
+<summary>
+  Решение
+</summary>
+
+Паттерн Декоратор предлагает заменить наследование агрегацией (или композицией). Мы помещаем исходный объект в специальную обёртку, которая вызывает поведение у вложенного объекта и добавляет свою функциональность.
+
+В нашем кофейном примере мы помещаем базовый напиток`Coffee` в специальную обёртку (например, "с молоком"). Мгновенно напиток приобретает новые вкусовые ноты, а его ценность закономерно возрастает на 20 рублей.
+
+Поскольку и исходный объект, и обёртка реализуют одинаковый интерфейс, клиент может работать с ними одинаково.
+
+При этом можно создавать цепочки из нескольких обёрток - например, Кофе → Молоко → Карамель → Сливки.
+
+**Итоговая структура классов кофейни c применением паттерна:**
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+
+class Client
+
+class BaseCoffee {
+  <<interface>>
+  + GetDescription() String
+  + GetCost() double
+}
+
+class Coffee {
+  + GetDescription() String
+  + GetCost() double
+}
+
+class CoffeeDecorator {
+  <<abstract>>
+  - wrapped: BaseCoffee
+  + GetDescription() String
+  + GetCost() double
+}
+
+class MilkDecorator {
+  + GetDescription() String
+  + GetCost() double
+}
+
+class CaramelDecorator {
+  + GetDescription() String
+  + GetCost() double
+}
+
+Client --> BaseCoffee
+BaseCoffee <|.. Coffee
+BaseCoffee <|.. CoffeeDecorator
+BaseCoffee <--o CoffeeDecorator
+CoffeeDecorator <|-- MilkDecorator
+CoffeeDecorator <|-- CaramelDecorator
+```
+
+**Псевдокод**
+
+**Класса `Coffee` вместе с интерфейсом:**
+
+```pseudocode
+// Базовый интерфейс для всех кофейных напитков
+interface BaseCoffee {
+  function GetDescription() : String
+  function GetCost() : double
+}
+
+// Конкретный класс кофе
+class Coffee implements BaseCoffee {
+  function GetDescription() : String {
+    return "Кофе"
+  }
+
+  function GetCost() : double {
+    return 100.0
+  }
+}
+```
+
+**Обертки для класса `Coffee`:**
+
+```pseudocode
+// Абстрактный декоратор
+abstract class CoffeeDecorator implements BaseCoffee {
+  protected wrapped: BaseCoffee
+
+  Constructor(coffee: BaseCoffee) {
+    this.wrapped = coffee
+  }
+
+  function GetDescription() : String {
+    return wrapped.GetDescription()
+  }
+
+  function GetCost() : double {
+    return wrapped.GetCost()
+  }
+}
+
+// Конкретные декораторы
+class MilkDecorator extends CoffeeDecorator {
+  function GetDescription() : String {
+    return wrapped.GetDescription() + ", молоко"
+  }
+
+  function GetCost() : double {
+    return wrapped.GetCost() + 20.0
+  }
+}
+
+class CaramelDecorator extends CoffeeDecorator {
+  function GetDescription() : String {
+    return wrapped.GetDescription() + ", карамель"
+  }
+
+  function GetCost() : double {
+    return wrapped.GetCost() + 30.0
+  }
+}
+
+```
+
+**Клиентский код:**
+
+```pseudocode
+function Main() {
+    // Простой кофе
+    simple_coffee = new Coffee()
+
+    // Кофе с молоком
+    coffee_with_milk = new MilkDecorator(new Coffee())
+
+    // Кофе с молоком и карамелью
+    fancy_coffee = new CaramelDecorator(
+                    new MilkDecorator(
+                      new Coffee()
+                    )
+                  )
+
+  // Можем дополнить кофе на лету
+  simple_coffee = new MilkDecorator(simple_coffee)
+  simple_coffee = new CaramelDecorator(simple_coffee)
+  // Кофе -> Кофе с Молоком -> Кофе с Молоком и Карамелью
+}
+```
+
+</details>
+
+**Общая диаграмма паттерна:**
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+
+сlass Client
+
+class Component {
+  <<interface>>
+  + Execute()
+}
+
+class ConcComponent["Concrete Component"] {
+  ...
+  + Execute()
+}
+
+class BaseDecorator["Base Decorator"] {
+  - wrappee: Component
+  + BaseDecorator(comp: Component)
+  + Execute()
+}
+
+class ConcDecorator["Concrete Decorator"] {
+  ...
+  + Execute()
+  + Extra()
+}
+
+Client --> Component
+Component <|.. ConcComponent
+Component <|.. BaseDecorator
+Component <--o BaseDecorator
+BaseDecorator <|-- ConcDecorator
+```
+
+</details>
 
 Facade
 **Фасад** — это структурный паттерн проектирования, который предоставляет простой интерфейс к сложной системе классов, библиотеке или фреймворку.
