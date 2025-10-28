@@ -907,11 +907,195 @@ BaseDecorator <|-- ConcDecorator
 
 </details>
 
-Facade
+<details>
+<summary>
+  Facade
+</summary>
+
 **Фасад** — это структурный паттерн проектирования, который предоставляет простой интерфейс к сложной системе классов, библиотеке или фреймворку.
 
-Проблема
-Решение
+<details>
+<summary>
+  Проблема
+</summary>
+
+Представим, что у нас есть умный дом, состоящий из множества систем:
+
+- Система освещения (LightingSystem)
+- Система климат-контроля (ClimateControlSystem)
+- Система мультимедиа (MultimediaSystem)
+- Система безопасности (SecuritySystem)
+- Система штор (CurtainSystem)
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+class LightingSystem {
+  + SetBrightness(int percentage)
+  + SetColor(string color)
+  + TurnOn()
+  + TurnOff()
+}
+
+class ClimateControlSystem {
+  + SetTemperature(double temperature)
+  + SetMode(string mode)
+}
+
+class MultimediaSystem {
+  + PlayMusic(string genre, int volume)
+  + PlayMovie(string title)
+  + SetVolume(int percentage)
+  + Stop()
+}
+
+class SecuritySystem {
+  + SetDoNotDisturb(bool enabled)
+  + LockDoors()
+  + ActivateAlarm()
+  + DisableAlarm()
+}
+
+class CurtainSystem {
+  + OpenAll()
+  + CloseAll()
+  + SetPosition(int percentage)
+}
+```
+
+Мы захотели создать уютную атмосферу для вечернегго отдыха, это включает в себя:
+
+1. Приглушить свет до 30%
+2. Установить температуру 23°C
+3. Включить джазовую музыку на 25% громкости
+4. Активировать режим "Не беспокоить"
+5. Закрыть шторы
+
+Но для этого нам приходиться обращаться к каждой системе отдельно и настраивать все самим:
+
+```pseudocode
+lighting.SetBrightness(30)
+climate.SetTemperature(23)
+multimedia.PlayMusic("Jazz", 25)
+security.SetDoNotDisturb(true)
+curtains.CloseAll()
+```
+
+Это неудобно и требует знания всех деталей каждой системы!
+
+</details>
+
+<details>
+<summary>
+  Решение
+</summary>
+
+Паттерн Фасад предлагает создать единый упрощённый интерфейс для взаимодействия со сложной системой, состоящей из множества компонентов. Он действует как "интеллектуальный посредник", который скрывает всю внутреннюю сложность от пользователя.
+
+Вместо того чтобы вручную управлять каждой подсистемой умного дома отдельно, мы создаём специальный класс-фасад `SmartHomeFacade`, который внутри выполнит всю последовательность действий за нас.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+class LightingSystem {
+  + SetBrightness(int percentage)
+  + SetColor(string color)
+  + TurnOn()
+  + TurnOff()
+}
+
+class ClimateControlSystem {
+  + SetTemperature(double temperature)
+  + SetHumidity(int percentage)
+  + SetMode(string mode)
+}
+
+class MultimediaSystem {
+  + PlayMusic(string genre, int volume)
+  + PlayMovie(string title)
+  + SetVolume(int percentage)
+  + Stop()
+}
+
+class SecuritySystem {
+  + SetDoNotDisturb(bool enabled)
+  + LockDoors()
+  + ActivateAlarm()
+  + DisableAlarm()
+}
+
+class CurtainSystem {
+  + OpenAll()
+  + CloseAll()
+  + SetPosition(int percentage)
+}
+
+class SmartHomeFacade {
+  - lighting: LightingSystem
+  - climate: ClimateControlSystem
+  - multimedia: MultimediaSystem
+  - security: SecuritySystem
+  - curtains: CurtainControlSystem
+  + ActivateEveningMode()
+  + ActivateMorningMode()
+  + ActivateCinemaMode()
+  + ActivateAwayMode()
+}
+
+SmartHomeFacade --> LightingSystem
+SmartHomeFacade --> ClimateControlSystem
+SmartHomeFacade --> MultimediaSystem
+SmartHomeFacade --> SecuritySystem
+SmartHomeFacade --> CurtainSystem
+```
+
+Теперь нам достаточно вызвать метод объекта `SmartHomeFacade` для создания уютной атмосферы:
+
+```pseudocode
+home_manager = new SmartHomeFacade()
+home_manager.ActivateEveningMode()
+```
+
+</details>
+
+**Общая диаграмма паттерна:**
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+
+class Facade {
+  - links_to_subsystem_objects
+  - optional_additional_facade
+  + SubsytemOperation()
+}
+
+class AdditFacade["Additional Facade"] {
+  ...
+  + AnotherOperation()
+}
+
+class SubClass1["Subsystem class"]
+class SubClass2["Subsystem class"]
+class SubClass3["Subsystem class"]
+class SubClass4["Subsystem class"]
+class SubClass5["Subsystem class"]
+class SubClass6["Subsystem class"]
+
+Client --> Facade
+Facade --> AdditFacade
+Facade ..> SubClass1
+Facade ..> SubClass2
+Facade ..> SubClass3
+Facade ..> SubClass4
+
+AdditFacade ..> SubClass3
+AdditFacade ..> SubClass4
+AdditFacade ..> SubClass5
+AdditFacade ..> SubClass6
+```
+
+</details>
 
 Flyweight
 **Легковес** — это структурный паттерн проектирования, который позволяет вместить бóльшее количество объектов в отведённую оперативную память. Легковес экономит память, разделяя общее состояние объектов между собой, вместо хранения одинаковых данных в каждом объекте.
