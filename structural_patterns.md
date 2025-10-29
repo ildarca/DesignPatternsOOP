@@ -1427,11 +1427,217 @@ FlyweightFactory o--> Flyweight
 
 </details>
 
-Proxy
+<details>
+<summary>
+  Proxy
+</summary>
+
 **Заместитель** — это структурный паттерн проектирования, который позволяет подставлять вместо реальных объектов специальные объекты-заменители. Эти объекты перехватывают вызовы к оригинальному объекту, позволяя сделать что-то до или после передачи вызова оригиналу.
 
-Проблема
-Решение
+<details>
+<summary>
+  Проблема
+</summary>
+
+Мы разрабатываем сайт-афишу мероприятий. Для получения актуальных данных о событиях мы используем сторонний сервис через закрытую библиотеку.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+direction LR
+
+class Client {
+  + OpenBrowser()
+  + VisitWebsite()
+}
+
+class Website {
+  - event_service: EventService
+  + LoadHomePage()
+  + GetEvents() Event[]
+  + RenderEvents(events: Event[])
+}
+
+class EventService {
+  + GetAllEvents() Event[]
+  + GetEventsByCategory(category: String) Event[]
+  + SearchEvents(query: String) Event[]
+}
+
+Client --> Website
+Website --> EventService
+```
+
+**`Client`** - пользователь, который заходит на сайт через браузер
+**`Website`** - основной класс веб-приложения (сайта-афиши)
+**`EventService`** - сторонний сервис, который предоставляет данные о мероприятиях через API
+
+Однако возникла серьезная проблема с производительностью:
+
+- Сторонний сервис обновляет данные только 1 раз в сутки
+- Наш сайт делает запрос к сервису при каждой перезагрузке страницы пользователем
+- Каждый запрос занимает 200-500 мс
+- При 1000 посетителей в час создается 1000+ ненужных запросов
+- Сторонний сервис начинает отвечать с ошибками из-за перегрузки
+
+</details>
+
+<details>
+<summary>
+  Решение
+</summary>
+
+Паттерн Заместитель предлагает создать новый класс-посредник, который повторяет интерфейс исходного служебного объекта. Такой класс получает возможность выполнять дополнительную логию до или после основных операций сервиса. В случае нашего сайта, это позволяет прозрачно кэшировать данные сервиса мероприятий и возвращать их клиентам без лишних запросов. Благодаря идентичному интерфейсу, объект-заместитель можно незаметно подставлять вместо реального сервиса в любой клиентский код.
+
+Создаем интерфейс `EventService`, который будет определять общие методы для всех сервисов мероприятий. Это гарантирует, что как оригинальный сервис, так и заместитель будут иметь одинаковые методы.
+
+Реализуем EventServiceProxy, который реализует тот же интерфейс `EventService` и содержит механизм кэширования. Он будет перехватывать все запросы к сервису мероприятий.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+
+class Client {
+  + OpenBrowser()
+  + VisitWebsite()
+}
+
+class Website {
+  - event_service: EventService
+  + LoadHomePage()
+  + GetEvents() Event[]
+  + RenderEvents(events: Event[])
+}
+
+class IEventService["EventService"] {
+  <<interface>>
+  + GetAllEvents() Event[]
+  + GetEventsByCategory(category: String) Event[]
+  + SearchEvents(query: String) Event[]
+}
+
+class EventServiceProxy {
+  - cache: Map~String, CacheEntry~
+  - real_service: EventService
+  - cache_duration: TimeSpan
+  + GetAllEvents() Event[]
+  + GetEventsByCategory(category: String) Event[]
+  + SearchEvents(query: String) Event[]
+  - IsCacheValid(key: String) Boolean
+  - UpdateCache(key: String, data: Event[])
+}
+
+class EventService {
+  + GetAllEvents() Event[]
+  + GetEventsByCategory(category: String) Event[]
+  + SearchEvents(query: String) Event[]
+}
+
+Client --> Website
+Website --> IEventService
+IEventService <|.. EventServiceProxy
+IEventService <|.. EventService
+EventServiceProxy o--> EventService
+```
+
+**Псевдокод:**
+
+**Client:**
+
+```pseudocode
+class Client {
+  function OpenBrowser() {
+    // Пользователь открывает браузер
+  }
+
+  function VisitWebsite() {
+    // Переходит на сайт-афишу
+  }
+}
+```
+
+**Website:**
+
+```pseudocode
+class Website {
+  field event_service: IEventService
+
+  function LoadHomePage() {
+    // Загружает главную страницу
+    events = this.GetEvents()
+    this.RenderEvents(events)
+  }
+
+  function GetEvents() : Event[] {
+    return event_service.GetAllEvents()
+  }
+
+  function RenderEvents(events: Event[]) {
+    // Отображает мероприятия на странице
+  }
+}
+```
+
+**Interface EventService:**
+
+```pseudocode
+interface EventService {
+  function GetAllEvents() : Event[]
+  function GetEventsByCategory(category: String) : Event[]
+  function SearchEvents(query: String) : Event[]
+}
+```
+
+**EventServiceProxy:**
+
+```pseudocode
+class EventServiceProxy implements IEventService {
+  field real_service: EventService
+  field cache: Map<String, CacheEntry>
+  field cache_duration: TimeSpan = 1 hour
+
+  function GetAllEvents() : Event[] {
+    cache_key = "all_events"
+
+    // Проверяем кэш перед обращением к реальному сервису
+    if (IsCacheValid(cache_key)) {
+      return cache[cache_key].data
+    }
+
+    // Делаем реальный запрос только если кэш устарел
+    events = real_service.GetAllEvents()
+    UpdateCache(cache_key, events)
+    return events
+  }
+
+  function IsCacheValid(key: String) : Boolean {
+    // Проверяет не устарели ли данные в кэше
+  }
+
+  function UpdateCache(key: String, data: Event[]) {
+    // Сохраняет данные в кэш с временной меткой
+  }
+}
+```
+
+**EventService:**
+
+```pseudocode
+class EventService implements IEventService {
+  function GetAllEvents() : Event[] {
+    // Делает реальный запрос к стороннему API
+    // Возвращает сырые данные о мероприятиях
+  }
+
+  function GetEventsByCategory(category: String) : Event[] {
+    // Фильтрует мероприятия по категории
+  }
+
+  function SearchEvents(query: String) : Event[] {
+    // Ищет мероприятия по запросу
+  }
+}
+```
 
 **Общая диаграмма паттерна:**
 
@@ -1462,3 +1668,5 @@ ServiceInterface <|.. Proxy
 ServiceInterface <|.. Service
 Proxy o--> Service
 ```
+
+</details>
