@@ -957,7 +957,330 @@ Mediator
 **Посредник** — это поведенческий паттерн проектирования, который позволяет уменьшить связанность множества классов между собой, благодаря перемещению этих связей в один класс-посредник.
 
 Проблема
+
+Представьте команду разработки программного продукта, где участвуют заказчик, программисты, тестировщики и дизайнеры. В традиционном подходе все эти участники общаются напрямую друг с другом. Заказчик может одновременно давать разные указания программисту и дизайнеру, программист напрямую сообщает тестировщику о готовности задачи, тестировщик шлет баг-репорты прямо программисту, а дизайнер согласует макеты со всеми сразу.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+direction LR
+
+class Customer {
+  + ChangeRequirements()
+  + RequestFeature()
+}
+
+class Programmer {
+  + CompleteTask()
+  + RequestClarification()
+}
+
+class Tester {
+  + ReportBug()
+  + VerifyFix()
+}
+
+class Designer {
+  + DeliverDesign()
+  + UpdateLayout()
+}
+
+Customer --> Programmer
+Customer --> Tester
+Customer --> Designer
+Programmer --> Tester
+Programmer --> Designer
+Programmer --> Customer
+Tester --> Programmer
+Tester --> Customer
+Designer --> Programmer
+Designer --> Customer
+```
+
+Такой прямой способ коммуникации быстро приводит к хаосу. Заказчик может непоследовательно формулировать требования, давая разные формулировки разным участникам. Программист, получая запросы из нескольких источников, не понимает, какие из них приоритетны. Тестировщик и дизайнер могут получить противоречивые инструкции. Возникает ситуация, когда левая рука не знает, что делает правая - программист реализует одну функциональность, в то время как дизайнер уже переработал макеты, а заказчик и вовсе передумал.
+
+```pseudocode
+class Customer {
+  field programmer: Programmer
+  field tester: Tester
+  field designer: Designer
+
+  function ChangeRequirements(new_requirements: String) {
+    // Заказчик сам решает, кого уведомлять
+    programmer.UpdateRequirements(new_requirements)
+    designer.UpdateRequirements(new_requirements)
+    tester.UpdateTestCases(new_requirements)
+    // Возможны разные формулировки для разных участников
+  }
+
+  function RequestFeature(feature: String) {
+    // Запросы отправляются напрямую
+    programmer.ImplementFeature(feature)
+    designer.CreateDesign(feature)
+  }
+}
+```
+
 Решение
+
+Паттерн Посредник предлагает радикально изменить эту схему, введя центральную фигуру - менеджера проектов. В этом случае все участники перестают общаться напрямую. Вместо этого каждый из них регистрируется у менеджера и далее все коммуникации происходят исключительно через него.
+
+Для менеджера создадим интерфейс, который он будет реализовывать, чтобы если что можно было заменять менеджеров. И для удобства работы сделаем общий интерфейс и для всех участников.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+
+class TeamMember {
+  <<interface>>
+  + SetMediator(mediator: Mediator)
+  + ReceiveMessage(message: String)
+  + GetRole() String
+}
+
+class Mediator {
+  <<interface>>
+  + Notify(sender: TeamMember, event: String, data: Any)
+}
+```
+
+Когда заказчик меняет требования, он не бежит к каждому участнику команды, а просто уведомляет менеджера. Менеджер, получив эту информацию, сам решает, кого и в какой последовательности уведомить. Он может сначала сообщить дизайнеру о необходимости пересмотреть макеты, затем программисту - о изменениях в техническом задании, и наконец тестировщику - о необходимости актуализировать тест-кейсы.
+
+Аналогично, когда программист завершает задачу, он не пишет всем подряд, а просто сообщает менеджеру о готовности. Менеджер уже сам решает, что тестировщик должен начать тестирование, а заказчику можно отправить уведомление о завершении этапа. Если тестировщик находит ошибку, он сообщает о ней менеджеру, и тот уже назначает программисту задачу на исправление, параллельно информируя заказчика о возникшей задержке.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+
+class Mediator {
+  <<interface>>
+  + Notify(sender: TeamMember, event: String, data: Any)
+}
+
+class ProjectManager {
+  - customer: Customer
+  - programmer: Programmer
+  - tester: Tester
+  - designer: Designer
+  + ProjectManager()
+  + Notify(sender: TeamMember, event: String, data: Any)
+  + RegisterMember(member: TeamMember)
+}
+
+class TeamMember {
+  <<interface>>
+  + SetMediator(mediator: Mediator)
+  + ReceiveMessage(message: String)
+  + GetRole() String
+}
+
+class Customer {
+  + ChangeRequirements(newRequirements: String)
+  + RequestFeature(feature: String)
+  + SetMediator(mediator: Mediator)
+  + ReceiveMessage(message: String)
+  + GetRole() String
+}
+
+class Programmer {
+  + CompleteTask(task: String)
+  + RequestClarification(question: String)
+  + SetMediator(mediator: Mediator)
+  + ReceiveMessage(message: String)
+  + GetRole() String
+}
+
+class Tester {
+  + ReportBug(bugDescription: String)
+  + VerifyFix(bugId: String)
+  + SetMediator(mediator: Mediator)
+  + ReceiveMessage(message: String)
+  + GetRole() String
+}
+
+class Designer {
+  + DeliverDesign(design: String)
+  + UpdateLayout(layout: String)
+  + SetMediator(mediator: Mediator)
+  + ReceiveMessage(message: String)
+  + GetRole() String
+}
+
+Mediator <|.. ProjectManager
+ProjectManager o--> Customer
+ProjectManager o--> Programmer
+ProjectManager o--> Tester
+ProjectManager o--> Designer
+Customer ..|> TeamMember
+Programmer ..|> TeamMember
+Tester ..|> TeamMember
+Designer ..|> TeamMember
+```
+
+Участники команды больше не связаны друг с другом напрямую - они знают только менеджера и общаются только через него. Это значительно упрощает изменение состава команды или процессов взаимодействия, поскольку не требует перестройки множественных связей между участниками.
+
+**Псевдокод:**
+
+**ProjectManager:**
+
+```pseudocode
+class ProjectManager implements Mediator {
+  field customer: Customer
+  field programmer: Programmer
+  field tester: Tester
+  field designer: Designer
+
+  function ProjectManager() {
+    // Создаем участников команды в конструкторе
+    this.customer = new Customer()
+    this.programmer = new Programmer()
+    this.tester = new Tester()
+    this.designer = new Designer()
+
+    // Регистрируем себя как посредника
+    this.customer.SetMediator(this)
+    this.programmer.SetMediator(this)
+    this.tester.SetMediator(this)
+    this.designer.SetMediator(this)
+  }
+
+  function RegisterMember(member: TeamMember) {
+    // Метод может остаться для обратной совместимости,
+    // но в этой реализации не используется
+  }
+
+  function Notify(sender: TeamMember, event: String, data: Any) {
+    if (sender.GetRole() == "Programmer" and event == "task_completed") {
+      // Программист завершил задачу
+      this.tester.ReceiveMessage("Задача '" + data + "' готова к тестированию")
+      this.customer.ReceiveMessage("Этап разработки '" + data + "' завершен")
+    }
+    else if (sender.GetRole() == "Tester" and event == "bug_reported") {
+      // Тестировщик нашел баг
+      this.programmer.ReceiveMessage("Обнаружен баг: " + data)
+      this.customer.ReceiveMessage("Выявлена проблема, возможна задержка: " + data)
+    }
+    else if (sender.GetRole() == "Customer" and event == "requirements_changed") {
+      // Заказчик изменил требования
+      this.programmer.ReceiveMessage("Требования обновлены: " + data)
+      this.designer.ReceiveMessage("Учтите новые требования в дизайне: " + data)
+      this.tester.ReceiveMessage("Актуализируйте тест-кейсы: " + data)
+    }
+    else if (sender.GetRole() == "Designer" and event == "design_ready") {
+      // Дизайнер завершил макет
+      this.programmer.ReceiveMessage("Дизайн готов для реализации: " + data)
+      this.tester.ReceiveMessage("Дизайн утвержден, готовьте тесты: " + data)
+    }
+  }
+}
+```
+
+**Programmer:**
+
+```pseudocode
+class Programmer implements TeamMember {
+  field mediator: Mediator
+
+  function SetMediator(mediator: Mediator) {
+    this.mediator = mediator
+  }
+
+  function GetRole() : String {
+    return "Programmer"
+  }
+
+  function CompleteTask(task: String) {
+    print("Программист завершил задачу: " + task)
+    if (mediator != null) {
+      mediator.Notify(this, "task_completed", task)
+    }
+  }
+
+  function RequestClarification(question: String) {
+    print("Программист запрашивает уточнение: " + question)
+    if (mediator != null) {
+      mediator.Notify(this, "clarification_needed", question)
+    }
+  }
+
+  function ReceiveMessage(message: String) {
+    print("Программист получил сообщение: " + message)
+  }
+}
+```
+
+**Использование:**
+
+```pseudocode
+// Теперь все просто - создаем менеджера
+manager = new ProjectManager()
+
+// Участники уже созданы и зарегистрированы
+// Получаем доступ к участникам через менеджера (если нужно)
+programmer = manager.programmer
+customer = manager.customer
+
+// Работаем через посредника
+programmer.CompleteTask("Форма регистрации")
+// Автоматически уведомляются тестировщик и заказчик
+
+customer.ChangeRequirements("Добавить темную тему")
+// Автоматически уведомляются программист, дизайнер и тестировщик
+```
+
+**Общая диаграмма паттерна:**
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+
+class ComponentA {
+  - m: Mediator
+  + OperationA()
+}
+
+class ComponentB {
+  - m: Mediator
+  + OperationB()
+}
+
+class ComponentC {
+  - m: Mediator
+  + OperationC()
+}
+
+class ComponentD {
+  - m: Mediator
+  + OperationD()
+}
+
+class Mediator {
+  <<interface>>
+  + Notify(sender)
+}
+
+class ConcreteMediator {
+  - componentA
+  - componentB
+  - componentC
+  - componentD
+  + Notify(sender)
+  + ReactOnA()
+  + ReactOnB()
+  + ReactOnC()
+  + ReactOnD()
+}
+
+Mediator <-- ComponentA
+Mediator <-- ComponentB
+Mediator <-- ComponentC
+Mediator <-- ComponentD
+ComponentA <--o ConcreteMediator
+ComponentB <--o ConcreteMediator
+Mediator <|.. ConcreteMediator
+ComponentC <--o ConcreteMediator
+ComponentD <--o ConcreteMediator
+```
 
 Memento
 **Снимок** — это поведенческий паттерн проектирования, который позволяет сохранять и восстанавливать прошлые состояния объектов, не раскрывая подробностей их реализации.
