@@ -1286,7 +1286,344 @@ Memento
 **Снимок** — это поведенческий паттерн проектирования, который позволяет сохранять и восстанавливать прошлые состояния объектов, не раскрывая подробностей их реализации.
 
 Проблема
+
+Представьте, что мы разрабатываем простой графический редактор для работы с фигурами. Пользователь может:
+
+- Добавлять новые фигуры (круги, прямоугольники)
+- Перемещать фигуры
+- Изменять размеры фигур
+- Удалять фигуры
+
+Класс `GraphicEditor` содержит множество полей с разными настройками:
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+class GraphicEditor {
+  - current_tool: String
+  - background_color: String
+  - brush_size: int
+  - cursor_x: int
+  - cursor_y: int
+  - zoom_level: int
+  - shapes: Shapes[]
+  + DrawShape(shape: Shape)
+  + ChangeTool(tool: String)
+  + ChangeBackground(color: String)
+  + SetBrushSize(size: int)
+  + SetZoom(zoom: int)
+}
+```
+
+В новой версии программы мы решили реализовать систему отмены действий (undo). Для этого нужно сохранять копии состояний `GraphicEditor`. Все просто, сделаем поля этого класса открытыми для любого другого класса, например, `UndoManager`. Но все ли так просто?
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+class GraphicEditor {
+  + current_tool: String
+  + background_color: String
+  + brush_size: int
+  + cursor_x: int
+  + cursor_y: int
+  + zoom_level: int
+  + shapes: Shapes[]
+  + DrawShape(shape: Shape)
+  + ChangeTool(tool: String)
+  + ChangeBackground(color: String)
+  + SetBrushSize(size: int)
+  + SetZoom(zoom: int)
+}
+
+class UndoManager {
+  ...
+  + SaveState(editor: GraphicEditor)
+  + Undo(editor: GraphicEditor)
+}
+
+UndoManager --> GraphicEditor
+```
+
+Возникает ряд проблем:
+
+1. Если мы добавим новое поле в `GraphicEditor`, то придется менять код сохранения копии во всех классах, которые работают с состоянием редактора
+2. Любой внешний код теперь может изменять состояние редактора непредсказуемым образом
+
+Задумаемся еще о хранении и восстановлении копий при операции `undo`. Для реализации отмены действий нам понадобится отдельный класс-контейнер `EditorState`, который будет хранить копию состояния `GraphicEditor`. Этот класс тоже будет иметь много полей. Когда пользователь выполняет операцию отмены, мы должны извлечь из контейнера `EditorState` все поля и скопировать их обратно в `GraphicEditor`. Это приводит к тем же проблемам нарушения инкапсуляции, но уже для класса, хранящего копии данных.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+class GraphicEditor {
+  + current_tool: String
+  + background_color: String
+  + brush_size: int
+  + cursor_x: int
+  + cursor_y: int
+  + zoom_level: int
+  + shapes: Shapes[]
+  + DrawShape(shape: Shape)
+  + ChangeTool(tool: String)
+  + ChangeBackground(color: String)
+  + SetBrushSize(size: int)
+  + SetZoom(zoom: int)
+}
+
+class EditorState {
+  + current_tool: String
+  + background_color: String
+  + brush_size: int
+  + cursor_x: int
+  + cursor_y: int
+  + zoom_level: int
+  + shapes: Shapes[]
+  + EditorState(editor: GraphicEditor)
+}
+
+class UndoManager {
+  - history: Stack~EditorState~
+  + SaveState(editor: GraphicEditor)
+  + Undo(editor: GraphicEditor)
+}
+
+UndoManager --> EditorState
+EditorState --> GraphicEditor
+```
+
 Решение
+
+Паттерн Снимок предлагает делегировать создание и восстановление состояния самому **объекту-создателю**, скрывая детали его внутренней реализации.
+
+Сохраняемое состояние помещается в специальный **объект-снимок**, который имеет ограниченный интерфейс. Этот интерфейс позволяет получать только информацию (например, название снимка), но не дает доступа к самим данным. Полный доступ к внутреннему состоянию снимка предоставляется только его создателю для чтения и восстановления данных.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+
+namespace Creator {
+class GraphicEditor {
+  - current_tool: String
+  - background_color: String
+  - brush_size: int
+  - cursor_x: int
+  - cursor_y: int
+  - zoom_level: int
+  - shapes: Shapes[]
+  + CreateMemento() Memento
+  + RestoreMemento(memento: Memento)
+  + DrawShape(shape: Shape)
+  + ChangeTool(tool: String)
+  + ChangeBackground(color: String)
+}
+
+class EditorState {
+  - current_tool: String
+  - background_color: String
+  - brush_size: int
+  - cursor_x: int
+  - cursor_y: int
+  - zoom_level: int
+  - shapes: Shapes[]
+  - Snapshot(state)
+  - GetState() : state
+  + GetName() String
+}
+}
+
+class Memento {
+  <<interface>>
+  + GetName() String
+}
+
+EditorState --|> Memento
+```
+
+Как правило, классы снимков `EditorState` реализуют как вложенные классы создателя. Такой подход предоставляет создателю прямой доступ к методам снимка для чтения и модификации состояния. В диаграмме вложенность показана через обромление в виде прямоугольника.
+
+Хранение снимков осуществляется в специальных **классах-опекунах**. Опекуны взаимодействуют со снимками только через их ограниченный интерфейс, что предотвращает возможность изменения данных снимка. При необходимости опекун может запросить у создателя восстановление предыдущего состояния, передав ему соответствующий снимок.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+
+namespace Creator {
+class GraphicEditor {
+  - current_tool: String
+  - background_color: String
+  - brush_size: int
+  - cursor_x: int
+  - cursor_y: int
+  - zoom_level: int
+  - shapes: Shapes[]
+  + CreateMemento() Memento
+  + RestoreMemento(memento: Memento)
+  + DrawShape(shape: Shape)
+  + ChangeTool(tool: String)
+  + ChangeBackground(color: String)
+}
+
+class EditorState {
+  - current_tool: String
+  - background_color: String
+  - brush_size: int
+  - cursor_x: int
+  - cursor_y: int
+  - zoom_level: int
+  - shapes: Shapes[]
+  - EditorState(state)
+  - GetState() : state
+  + GetName() String
+}
+}
+
+class Memento {
+  <<interface>>
+  + GetName() String
+}
+
+class UndoManager {
+  - history: Stack~Memento~
+  + SaveState(editor: GraphicEditor)
+  + Undo(editor: GraphicEditor)
+}
+
+EditorState --|> Memento
+UndoManager --> Memento
+GraphicEditor <-- UndoManager
+```
+
+**Псевдокод:**
+
+**Класс-создатель и класс-снимок:**
+
+```pseudocode
+// Создание снимка
+class GraphicEditor {
+  private field current_tool: String
+  private field background_color: String
+  private field brush_size: int
+  private field cursor_x: int
+  private field cursor_y: int
+  private field zoom_level: int
+  private field shapes: Shapes[]
+  private field active_layer: String
+  private field grid_enabled: boolean
+  private field snap_to_grid: boolean
+  private field selection: Shape[]
+  private field history_enabled: boolean
+
+  function CreateMemento() : Memento {
+    // Создаем снимок с текущим состоянием
+    return new Snapshot(
+      this.current_tool,
+      this.background_color,
+      this.brush_size,
+      copy(this.shapes)
+    )
+  }
+
+  function RestoreMemento(memento: Memento) {
+    if (memento instanceof Snapshot) {
+      // Восстанавливаем состояние из снимка
+      this.current_tool = memento.current_tool
+      this.background_color = memento.background_color
+      this.brush_size = memento.brush_size
+      this.shapes = memento.shapes
+    }
+  }
+
+  // Вложенный класс снимка
+  class EditorState {
+    field tool: String
+    field background: String
+    field brush: int
+    field cursor_x: int
+    field cursor_y: int
+    field zoom: int
+    field shapes: Shapes[]
+
+    Сonstructor(tool, background, brush, cursor_x, cursor_y, zoom, shapes) {
+        this.tool = tool
+        this.background = background
+        this.brush = brush
+        this.cursor_x = cursor_x
+        this.cursor_y = cursor_y
+        this.zoom = zoom
+        this.shapes = shapes
+    }
+
+    function GetState() : EditorState {
+      return new EditorState(
+        this.current_tool,
+        this.background_color,
+        this.brush_size,
+        this.cursor_x,
+        this.cursor_y,
+        this.zoom_level,
+        copy(this.shapes)
+      )
+    }
+    function GetName() : String {
+      return "Snapshot_" + DateTime.now()
+    }
+  }
+}
+```
+
+**Класс-опекун:**
+
+```pseudocode
+class UndoManager {
+  - history: Stack~Memento~
+
+  function SaveState(editor: GraphicEditor) {
+    // Альтернативный подход: опекун сразу сохраняет состояние
+    memento = editor.CreateMemento()
+    this.history.push(memento)
+  }
+
+  function Undo(editor: GraphicEditor) {
+    if (!this.history.IsEmpty()) {
+      // Опекун извлекает последний снимок из истории
+      savedMemento = this.history.Pop()
+
+      // Опекун инициирует восстановление состояния
+      editor.RestoreMemento(savedMemento)
+    }
+  }
+}
+```
+
+**Общая диаграмма паттерна:**
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+direction LR
+namespace _ {
+class Originator {
+  - state
+  + Save() Memento
+  + Restore(m: Memento)
+}
+
+class Memento {
+  - state
+  - Memento(state)
+  - GetState()
+}
+}
+
+class Caretaker {
+  - originator: Originator
+  - history: Memento[]
+  + DoSomething()
+  + Undo()
+}
+
+Originator ..> Memento
+Memento <--o Caretaker
+```
 
 Observer
 **Наблюдатель** — это поведенческий паттерн проектирования, который создаёт механизм подписки, позволяющий одним объектам следить и реагировать на события, происходящие в других объектах.
