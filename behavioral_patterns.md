@@ -1629,7 +1629,271 @@ Observer
 **Наблюдатель** — это поведенческий паттерн проектирования, который создаёт механизм подписки, позволяющий одним объектам следить и реагировать на события, происходящие в других объектах.
 
 Проблема
+
+Представьте интернет-магазин электроники, где клиенты хотят получать уведомления только о конкретных товарах:
+
+- Геймер ждет поступления новой видеокарты RTX 5080
+- Фотограф ищет конкретный объектив Sony 85mm f/1.4
+- Студент следит за скидками на ноутбуки Apple
+- Коллекционеры хотят знать о поступлении редких виниловых пластинок
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+class Product {
+  - name: String
+  - price: double
+  - stock: int
+  - category: String
+  + UpdateStock(new_stock: int)
+  + SetPrice(new_price: double)
+}
+
+class Gamer {
+  - wishlist: String[]
+  - notification_сhannels: String[]
+  + CheckProductAvailability()
+  + CheckPriceDrops()
+}
+
+class Photographer {
+  - equipment_interests: String[]
+  - budget: double
+  + CheckProductAvailability()
+  + CheckPriceDrops()
+}
+
+class Student {
+  - desiredBrands: String[]
+  - maxBudget: double
+  + CheckProductAvailability()
+  + CheckPriceDrops()
+}
+
+class Collector {
+  - collection_items: String[]
+  - rarity_threshold: String
+  + CheckProductAvailability()
+}
+
+Gamer --> Product
+Photographer --> Product
+Student --> Product
+Collector --> Product
+
+note for Gamer "Постоянно опрашивает продукты из wishlist"
+note for Photographer "Регулярно проверяет наличие оборудования"
+note for Student "Часто проверяет цены на нужные бренды"
+note for Collector "Поиск редких товаров требует постоянных проверок"
+```
+
+**Проблемы этого подхода:**
+
+- Клиенты вынуждены постоянно проверять наличие товаров
+- Тысячи клиентов одновременно опрашивают базу данных и создается нагрузка
+- Клиенты узнают о поступлении с опозданием
+- Товар может распродаться между проверками клиентов
+- Массовые рассылки приводят к спаму — клиенты получают уведомления о товарах, которые их не интересуют, в результате они отписываются от всех уведомлений магазина
+
+С архитектурной точки зрения, такой подход приводит к жесткой связанности компонентов системы — классы клиентов оказываются напрямую зависимы от внутренней реализации продуктов, что нарушает принципы инкапсуляции и открытости/закрытости, усложняет тестирование и поддержку кода, а также создает распределенную и дублирующуюся бизнес-логику, когда каждый клиент вынужден самостоятельно реализовывать механизмы опроса и обработки изменений, вместо того чтобы полагаться на централизованную систему уведомлений.
+
 Решение
+
+**Немного определений:**
+
+- **Издатели** - это объекты, которые содержат некоторое важное или интересное для других состояние и оповещают подписчиков о его изменениях.
+- **Подписчики** - это объекты, которые хотят следить за изменениями издателя, но не должны влиять на его работу и состояние.
+
+Паттерн Наблюдатель предлагает создать механизм подписки, позволяющий объектам-подписчикам получать уведомления об изменениях состояния объекта-издателя. Издатель хранит список подписчиков и предоставляет методы для подписки и отписки: `Subscrive(subscribere)`, `Unsubscribe(subscriber)`. Когда происходит важное событие, издатель проходит по списку подписчиков и вызывает определённый метод каждого из них, передавая данные о произошедшем изменении. Издатель не знает о конкретных деталях реализации подписчиков, он взаимодействует с ними через общий интерфейс.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+
+class Product {
+  - subscribers: Subscriber[]
+  - name: String
+  - price: double
+  - stock: int
+  - category: String
+  + Subscribe(subscriber: Subscriber)
+  + Unsubscribe(subscriber: Subscriber)
+  + NotifySubscribers()
+  + UpdateStock(new_stock: int)
+  + SetPrice(new_price: double)
+}
+
+class Subscriber {
+  <<interface>>
+  + OnProductUpdated(product: Product, event_type: String)
+}
+
+class Gamer {
+  - wishlist: String[]
+  - notification_channels: String[]
+  + OnProductUpdated(product: Product, event_type: String)
+}
+
+class Photographer {
+  - equipment_interests: String[]
+  - budget: double
+  + OnProductUpdated(product: Product, event_type: String)
+}
+
+class Student {
+  - desired_brands: String[]
+  - max_budget: double
+  + OnProductUpdated(product: Product, event_type: String)
+}
+
+class Collector {
+  - collection_items: String[]
+  - rarity_threshold: String
+  + OnProductUpdated(product: Product, event_type: String)
+}
+
+Product o--> Subscriber
+Subscriber <|.. Gamer
+Subscriber <|.. Photographer
+Subscriber <|.. Student
+Subscriber <|.. Collector
+```
+
+**Псевдокод:**
+
+**Издатель:**
+
+```preudocode
+// Класс товара (Издатель)
+class Product {
+  private field subscribers: List~Subscriber~ = []
+  private field name: String
+  private field price: double
+  private field stock: int
+  private field category: String
+
+  function Subscribe(subscriber: Subscriber) {
+    if (!this.subscribers.contains(subscriber)) {
+      this.subscribers.Add(subscriber)
+    }
+  }
+
+  function Unsubscribe(subscriber: Subscriber) {
+    this.subscribers.Remove(subscriber)
+  }
+
+  private function NotifySubscribers(eventType: String) {
+    for each subscriber in this.subscribers {
+      subscriber.OnProductUpdated(this, eventType)
+    }
+  }
+
+  function UpdateStock(new_stock: int) {
+    oldStock = this.stock
+    this.stock = new_stock
+
+    if (oldStock == 0 && new_stock > 0) {
+      this.NotifySubscribers("STOCK_AVAILABLE")
+    } else if (new_stock == 0) {
+      this.NotifySubscribers("OUT_OF_STOCK")
+    }
+  }
+
+  function SetPrice(new_price: double) {
+      oldPrice = this.price
+      this.price = new_price
+
+      if (new_price < oldPrice) {
+          this.NotifySubscribers("PRICE_DROP")
+      } else if (new_price > oldPrice) {
+          this.NotifySubscribers("PRICE_INCREASE")
+      }
+  }
+}
+```
+
+**Пример работы подписчика:**
+
+```pseudocode
+class Gamer implements Subscriber {
+  private field wishlist: Set~String~ = {"RTX 5080", "PlayStation 6", "Gaming Mouse"}
+  private field notificationChannels: Set~String~ = {"PUSH", "EMAIL"}
+
+  function OnProductUpdated(product: Product, event_type: String) {
+    if (this.wishlist.Contains(product.name)) {
+      if (event_type == "STOCK_AVAILABLE") {
+        print("Геймер: Ура! " + product.name + " появился в наличии!")
+        this.SendPushNotification(product)
+      } else if (event_type == "PRICE_DROP") {
+        print("Геймер: Цена на " + product.name + " упала до " + product.price)
+        this.SendEmailNotification(product)
+      }
+    }
+  }
+}
+```
+
+**Клиентский код:**
+
+```pseudocode
+// Создаем товары
+video_card = new Product("RTX 5080", 1500, 0, "Graphics Cards")
+macbook = new Product("MacBook Air M3", 1200, 10, "Laptops")
+
+// Создаем подписчиков
+gamer = new Gamer()
+student = new Student()
+
+// Подписываем клиентов на интересующие товары
+video_card.Subscribe(gamer)    // Геймер подписан на видеокарту
+macbook.Subscribe(student)    // Студент подписан на ноутбук
+video_card.Subscribe(student)  // Студент тоже подписан на видеокарту
+
+// Симулируем события в магазине
+print("=== Поступление видеокарты ===")
+video_card.UpdateStock(5)      // Геймер и студент получат уведомления
+
+print("=== Снижение цены на ноутбук ===")
+macbook.SetPrice(750)         // Только студент получит уведомление
+
+print("=== Снижение цены на видеокарту ===")
+video_card.SetPrice(1400)      // Геймер и студент получат уведомления
+
+// Отписка от уведомлений
+video_card.Unsubscribe(student) // Студент больше не следит за видеокартой
+```
+
+**Общая диаграмма паттерна:**
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+
+class Client
+
+class Publisher {
+  - subscribers: Subscriber[]
+  - mainState
+  + subscribe(s: Subscriber)
+  + Unsubscribe(s: Subscriber)
+  + NotifySubscribers()
+  + MainBusinessLogic()
+}
+
+class Subscriber {
+  <<interface>>
+  + Update(context)
+}
+
+class ConcreteSubscriber {
+  + Update(context)
+}
+
+Publisher o--> Subscriber
+Subscriber <|.. ConcreteSubscriber
+Client --> Publisher
+Client ..> ConcreteSubscriber
+```
 
 State
 **Состояние** — это поведенческий паттерн проектирования, который позволяет объектам менять поведение в зависимости от своего состояния. Извне создаётся впечатление, что изменился класс объекта.
