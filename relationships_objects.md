@@ -85,4 +85,4 @@ A --|> B
 
 ## Итоговая диаграмма
 
-![itog](img/relation_itog.png){width=50%}
+<img src="img/relation_itog.png" width="500">
