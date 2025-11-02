@@ -2479,11 +2479,206 @@ Template Method
 **Шаблонный метод** — это поведенческий паттерн проектирования, который определяет скелет алгоритма, перекладывая ответственность за некоторые его шаги на подклассы. Паттерн позволяет подклассам переопределять шаги алгоритма, не меняя его общей структуры.
 
 Проблема
+
+В кофейне автоматизируют процесс приготовления напитков. Каждый напиток (кофе, чай, горячий шоколад) готовится по уникальному рецепту.
+
+Рассмотрим три популярных напитка: капучино, зеленый чай и горячий шоколад.
+
+**Капучино:**
+
+1. Вскипятить воду
+2. Помолоть кофейные зерна
+3. Налить в чашку
+
+**Зеленый чай:**
+
+1. Вскипятить воду
+2. Заварить чайные листья 3 минуты
+3. Перелить в чашку
+
+**Горячий шоколад:**
+
+1. Подогреть молоко
+2. Растворить шоколадную пасту в молоке
+3. Перелить в чашку
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+class CappuccinoMaker {
+  + MakeBeverage()
+}
+
+class GreenTeaMaker {
+  + MakeBeverage()
+}
+
+class HotChocolateMaker {
+  + MakeBeverage()
+}
+```
+
+```pseudocode
+// Капучино
+class CappuccinoMaker {
+  method MakeBeverage() {
+    print("Вскипятить воду")
+    print("Помолоть кофейные зерна")
+    print("Налить в чашку")
+  }
+}
+
+// Зеленый чай
+class GreenTeaMaker {
+  method MakeBeverage() {
+    print("Вскипятить воду")
+    print("Заварить чайные листья 3 минуты")
+    print("Перелить в чашку")
+  }
+}
+
+// Горячий шоколад
+class HotChocolateMaker {
+  method MakeBeverage() {
+    print("Подогреть молоко")
+    print("Растворить шоколадную пасту в молоке")
+    print("Перелить в чашку")
+  }
+}
+```
+
+Мы можем заметить общую последовательность шагов при приготовлении:
+
+1. Подготовка жидоксти
+2. Приготовление основного ингредиента
+3. Переливание в чашку
+
+В текущей реализации каждый класс напитка дублирует общую последовательность шагов приготовления. Это приводит к дублированию кода, сложности внесения изменений и отсутствию единой структуры алгоритма. При добавлении нового напитка или изменении общего процесса приходится править все классы, что нарушает принципы поддержки кода и увеличивает риск ошибок.
+
 Решение
+
+Паттерн **Шаблонный метод** предлагает разделить алгоритм на отдельные шаги, вынести каждый шаг в свой метод и собрать их в правильной последовательности внутри одного главного метода. Такой главный метод будет называться **шаблонным**.
+
+Часть шагов может быть реализована непосредственно в базовом классе, а другие шаги объявляются абстрактными. Это дает возможность подклассам переопределять только те шаги алгоритма, которые требуют изменения, не затрагивая общую структуру процесса и оставляя неизменными остальные этапы.
+
+В примере с приготовлением напитков это означает, что мы можем создать базовый класс с общим алгоритмом приготовления, где такие шаги как **подготовка жидкости** и **переливание в чашку** имеет реализацию по умолчанию, а шаг **приготовление основного ингредиента** объявляется абстрактным, позволяя конкретным классам напитков реализовать его специфичное поведение.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+class BeverageMaker {
+  <<abstract>>
+  + MakeBeverage()
+  + PrepareLiquid()
+  + PrepareMainIngredient()*
+  + PourIntoCup()
+}
+
+class CappuccinoMaker {
+  + PrepareLiquid()
+  + PrepareMainIngredient()
+}
+
+class GreenTeaMaker {
+  + PrepareLiquid()
+  + PrepareMainIngredient()
+}
+
+class HotChocolateMaker {
+  + PrepareLiquid()
+  + PrepareMainIngredient()
+}
+
+BeverageMaker <|-- CappuccinoMaker
+BeverageMaker <|-- GreenTeaMaker
+BeverageMaker <|-- HotChocolateMaker
+```
+
+**Псевдокод:**
+
+**Базовый класс с шаблонным методом:**
+
+```pseudocode
+// Абстрактный базовый класс
+abstract class BeverageMaker {
+  // Шаблонный метод
+  method MakeBeverage() {
+    this.PrepareLiquid()
+    this.PrepareMainIngredient()
+    this.PourIntoCup()
+  }
+
+  // Абстрактный метод для переопределения
+  abstract method PrepareMainIngredient()
+
+  // Общие методы с реализацией по умолчанию
+  method PrepareLiquid() {
+    print("Вскипятить воду")
+  }
+
+  method PourIntoCup() {
+    print("Перелить в чашку")
+  }
+}
+```
+
+**Напитки:**
+
+```pseudocode
+// Конкретные реализации
+class CappuccinoMaker extends BeverageMaker {
+  method PrepareMainIngredient() {
+    print("Помолоть кофейные зерна")
+  }
+}
+
+class GreenTeaMaker extends BeverageMaker {
+  method PrepareMainIngredient() {
+    print("Заварить чайные листья 3 минуты")
+  }
+}
+
+class HotChocolateMaker extends BeverageMaker {
+  method PrepareLiquid() {
+    print("Подогреть молоко")
+  }
+
+  method PrepareMainIngredient() {
+    print("Растворить шоколадную пасту в молоке")
+  }
+}
+```
 
 **Общая диаграмма паттерна:**
 
 ```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+class AbstractClass {
+  <<abstract>>
+  + TemplateMethod()
+  + step1()
+  + step2()
+  + step3()*
+  + step4()*
+}
+
+class ConcreteClass1 {
+  ...
+  + step3()
+  + step4()
+}
+
+class ConcreteClass2 {
+  ...
+  + step1()
+  + step2()
+  + step3()
+  + step4()
+}
+
+AbstractClass <|-- ConcreteClass1
+AbstractClass <|-- ConcreteClass2
 ```
 
 Visitor
@@ -2495,4 +2690,6 @@ Visitor
 **Общая диаграмма паттерна:**
 
 ```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
 ```
