@@ -2310,11 +2310,169 @@ Strategy
 **Стратегия** — это поведенческий паттерн проектирования, который определяет семейство схожих алгоритмов и помещает каждый из них в собственный класс, после чего алгоритмы можно взаимозаменять прямо во время исполнения программы
 
 Проблема
+
+Мы создали мобильное навигационное приложение `MNP 1.0`, которое строит маршруты разными способами: автомобильные, пешеходные.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+
+class Navigator {
+  + BuildRoute(point_a: Point, point_b: Point, route_type: String)
+}
+```
+
+```pseudocode
+class Navigator {
+  method BuildRoute(point_a: Point, point_b: Point, route_type: String) {
+    if (route_type == "DRIVING") {
+      // Логика для автомобильного маршрута
+      // ... 15+ строк специфической логики
+    } else if (route_type == "WALKING") {
+      // Логика для пешеходного маршрута
+      // ... 10+ строк специфической логики
+    }
+  }
+}
+```
+
+От пользователей поступают жалобы на то, что нет возможности строить маршруты для поездки на общественном транспорте. В новом приложении мы исправили это и добавили новый алгоритм для поиска маршрута для общественного транспорта.
+
+На дорогах общественного пользования появились электросамокаты. Теперь нужно и для них добавлять алгоритм поиска маршрута. С каждым новым алгоритмом код увеличивается, и мы вынуждены постоянно модифицировать основной класс навигатора. Это приводит к нескольким проблемам:
+
+- С увеличением количества алгоритмов становится сложнее покрывать тестами все возможные варианты маршрутов
+- Любое изменение в основном классе `Navigator` может случайно сломать работу существующих алгоритмов
+- Класс `Navigator` становится слишком большим и сложным для понимания и поддержки
+
 Решение
+
+Паттерн Стратегия предлагает вынести семейство схожих алгоритмов в свои собственные классы, называемый **стратегиями**. Класс `Navigator` будет контекстом, хранящим ссылку на конкретную стратегию и делегируя ей работу. Все стратегии должны иметь единый общий интерфейс. Это делает контекст независимым от конкретных классов стратегий — он работает только с интерфейсом. С другой стороны, вы можете свободно изменять, добавлять или удалять алгоритмы, вообще не затрагивая код контекста.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+
+class Navigator {
+  - strategy: RouteStrategy
+  + SetStrategy(strategy: RouteStrategy)
+  + BuildRoute(point_a: Point, point_b: Point)
+}
+
+class RouteStrategy {
+  <<interface>>
+  + BuildRoute(point_a: Point, point_b: Point)
+}
+
+class DrivingStrategy {
+  + BuildRoute(point_a: Point, point_b: Point)
+}
+
+class WalkingStrategy {
+  + BuildRoute(point_a: Point, point_b: Point)
+}
+
+class PublicTransportStrategy {
+  + BuildRoute(point_a: Point, point_b: Point)
+}
+
+Navigator o--> RouteStrategy
+RouteStrategy <|.. DrivingStrategy
+RouteStrategy <|.. WalkingStrategy
+RouteStrategy <|.. PublicTransportStrategy
+```
+
+**Псевдокод:**
+
+**Стратегии:**
+
+```pseudocode
+// Общий интерфейс для всех стратегий
+interface RouteStrategy {
+  method buildRoute(point_a: Point, point_b: Point)
+}
+
+// Конкретные стратегии
+class DrivingStrategy implements RouteStrategy {
+  method buildRoute(point_a: Point, point_b: Point) {
+    // Специфическая логика для автомобильного маршрута
+  }
+}
+
+class WalkingStrategy implements RouteStrategy {
+  method buildRoute(point_a: Point, point_b: Point) {
+    // Специфическая логика для пешеходного маршрута
+  }
+}
+
+class PublicTransportStrategy implements RouteStrategy {
+  method buildRoute(point_a: Point, point_b: Point) {
+    // Специфическая логика для общественного транспорта
+  }
+}
+```
+
+**Контекст:**
+
+```pseudocode
+// Контекст - класс Navigator
+class Navigator {
+  private strategy: RouteStrategy
+
+  method SetStrategy(strategy: RouteStrategy) {
+    this.strategy = strategy
+  }
+
+  method BuildRoute(point_a: Point, point_b: Point) {
+    strategy.BuildRoute(point_a, point_b)
+  }
+}
+```
+
+**Клиент:**
+
+```pseudocode
+navigator = new Navigator()
+
+// Автомобильный маршрут
+navigator.SetStrategy(new DrivingStrategy())
+navigator.BuildRoute(pointA, pointB)
+
+// Пешеходный маршрут
+navigator.SetStrategy(new WalkingStrategy())
+navigator.BuildRoute(pointA, pointB)
+
+// Маршрут на общественном транспорте
+navigator.SetStrategy(new PublicTransportStrategy())
+navigator.BuildRoute(pointA, pointB)
+```
 
 **Общая диаграмма паттерна:**
 
 ```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+
+class Client
+
+class Context {
+  - strategy: Strategy
+  + SetStrategy(strategy: Strategy)
+  + DoSomething()
+}
+
+class Strategy {
+  <<interface>>
+  + Execute(data)
+}
+
+class ConcreteStrategies {
+  + Execute(data)
+}
+
+Context o--> Strategy
+Strategy <|.. ConcreteStrategies
+Client --> Context
+Client ..> ConcreteStrategies
 ```
 
 Template Method
