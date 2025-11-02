@@ -2685,11 +2685,233 @@ Visitor
 **Посетитель** — это поведенческий паттерн проектирования, который позволяет добавлять в программу новые операции, не изменяя классы объектов, над которыми эти операции могут выполняться.
 
 Проблема
+
+У нас есть иерархия классов документов (`WordDocument`, `PDFDocument`, `ExcelDocument`).
+
+Нужно реализовать экспорт в формат `TXT`. Но при добавлении этого функционала приходится изменять все классы документов, добавляя в них новые методы `ExportToTXT()`. Это нарушает принцип открытости/закрытости и приводит к раздуванию интерфейсов классов.
+
+При появлении требования добавить экспорт в `JSON`, придется снова модифицировать все классы, добавляя метод `ExportToJson()`. Каждое новое требование заставляет нас изменять существующий код, что увеличивает риск внесения ошибок и усложняет поддержку системы.
+
+Более того, логика экспорта в `TXT` не соответствует основному назначению этих классов. Главная задача классов документов - управление данными документов, а операции преобразования форматов выходят за рамки их основной ответственности.
+
 Решение
+
+Паттерн **Посетитель** предлагает вынести операции экспорта в отдельные классы-посетители, не изменяя исходные классы документов. Объекты документов не выполняют операции экспорта самостоятельно. Вместо этого они передаются в методы посетителя, который содержит всю логику преобразования.
+
+Поскольку алгоритм экспорта различается для каждого типа документа, посетитель должен содержать отдельный метод для каждого класса. Эти методы имеют схожие названия и назначение, но основное различие заключается в типе принимаемого параметра - конкретного класса документа, с которым нужно работать.
+
+Например, посетитель экспорта в `TXT` будет иметь три метода: один для работы с `WordDocument`, другой для `PDFDocument` и третий для `ExcelDocument`. Каждый из этих методов содержит специализированную логику преобразования, соответствующую особенностям конкретного типа документа.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+
+class TxtExportVisitor {
+  + ExportWordToTXT(document: WordDocument)
+  + ExportPDFToTXT(document: PDFDocument)
+  + ExportExcelToTXT(document: ExcelDocument)
+}
+```
+
+**Возникает вопрос:** каким образом передавать объекты документов в посетитель? Поскольку каждый метод посетителя имеет различную сигнатуру и принимает конкретный тип документа, использовать полиморфизм при обработке коллекции документов не представляется возможным. При переборе документов разных типов придется определять тип каждого объекта, чтобы вызвать соответствующий метод посетителя.
+
+```pseudocode
+for (doc : documents) {
+  // Приходится делать проверку вручную:
+  if (doc is WordDocument) {
+    ExportWordToTXT(doc);
+  } else if (doc is PDFDocument) {
+    ExportPDFToTXT(doc);
+  } else if (doc is ExcelDocument) {
+    ExportExcelToTXT(doc);
+  }
+}
+```
+
+Паттерн Посетитель успешно решает проблему выбора метода через механизм двойной диспетчеризации. Вместо того чтобы вручную определять тип объекта и выбирать соответствующий метод посетителя, мы делегируем эту задачу самим объектам документов. Каждый документ знает свой тип и может вызвать правильную перегрузку метода посетителя. Для этого в каждый класс документов необходимо добавить метод `Accept`, который будет принимать посетителя в качестве параметра и затем внутри этого метода просто вызвать соответствующий метод посетителя, передав ему текущий объект в качестве аргумента.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+class WordDocument {
+  ...
+  + Accept(visitor: TxtExportVisitor)
+}
+
+class PDFDocument {
+  ...
+  + Accept(visitor: TxtExportVisitor)
+}
+
+class ExcelDocument {
+  ...
+  + Accept(visitor: TxtExportVisitor)
+}
+```
+
+**Реализация метода Accept() в классе документов:**
+
+```pseudocode
+class Document {
+  <<interface>>
+  + Accept(visitor: TxtExportVisitor)
+}
+
+class WordDocument implements Document {
+  method Accept(visitor: TxtExportVisitor) {
+    visitor.VisitWordDocument(this)
+  }
+}
+
+class PDFDocument implements Document {
+  method Accept(visitor: TxtExportVisitor) {
+    visitor.VisitPDFDocument(this)
+  }
+}
+
+class ExcelDocument implements Document {
+  method Accept(visitor: TxtExportVisitor) {
+    visitor.VisitExcelDocument(this)
+  }
+}
+```
+
+**Использование:**
+
+```pseudocode
+for (doc : documents) {
+  doc.Accept(TxtExportVisitor)
+}
+```
+
+Первая диспетчеризация происходит в строке: `doc.Accept(TxtExportVisitor)`. Здесь система выбирает, какая именно реализация метода `Accept()` будет вызвана - в `WordDocument`, `PDFDocument` или `ExcelDocument`, основываясь на фактическом типе объекта doc.
+
+Вторая диспетчеризация происходит внутри метода `Accept()`, например: `visitor.VisitWordDocument(this)`.
+Здесь система выбирает, какая именно перегрузка метода `Visit` будет вызвана у посетителя, основываясь на типе параметра (`WordDocument`, `PDFDocument` или `ExcelDocument`).
+
+Для посетителя следует создать общий интерфейс. Это позволит добавлять новых посетителей, например `JsonExportVisitor`, без изменения классов документов. Соответственно, в интерфейсе документов метод `Accept()` будет принимать параметр типа интерфейса посетителя `ExportVisitor`, что обеспечивает возможность работы с любыми конкретными реализациями посетителей.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+class Document {
+  <<interface>>
+  + Accept(visitor: ExportVisitor)
+}
+
+class WordDocument {
+  + Accept(visitor: ExportVisitor)
+}
+
+class PDFDocument {
+  + Accept(visitor: ExportVisitor)
+}
+
+class ExcelDocument {
+  + Accept(visitor: ExportVisitor)
+}
+
+class ExportVisitor {
+  <<interface>>
+  + VisitWordDocument(doc: WordDocument)
+  + VisitPDFDocument(doc: PDFDocument)
+  + VisitExcelDocument(doc: ExcelDocument)
+}
+
+class TxtExportVisitor {
+  + VisitWordDocument(doc: WordDocument)
+  + VisitPDFDocument(doc: PDFDocument)
+  + VisitExcelDocument(doc: ExcelDocument)
+}
+
+class JsonExportVisitor {
+  + VisitWordDocument(doc: WordDocument)
+  + VisitPDFDocument(doc: PDFDocument)
+  + VisitExcelDocument(doc: ExcelDocument)
+}
+
+Document <|.. WordDocument
+Document <|.. PDFDocument
+Document ..> ExportVisitor
+Document <|.. ExcelDocument
+
+WordDocument <.. ExportVisitor
+PDFDocument <.. ExportVisitor
+ExcelDocument <.. ExportVisitor
+
+ExportVisitor <|.. TxtExportVisitor
+ExportVisitor <|.. JsonExportVisitor
+
+```
+
+**Клиент:**
+
+```pseudocode
+documents = [
+  new WordDocument(),
+  new PDFDocument(),
+  new ExcelDocument()
+]
+
+// Создаем посетителей для разных операций
+txt_exporter = new TxtExportVisitor()
+json_exporter = new JsonExportVisitor()
+
+// Экспорт всех документов в TXT
+for (doc : documents) {
+  doc.Accept(txt_exporter)
+}
+
+// Экспорт всех документов в JSON
+for (doc : documents) {
+  doc.Accept(json_exporter)
+}
+```
 
 **Общая диаграмма паттерна:**
 
 ```mermaid
 %%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
 classDiagram
+class Visitor {
+  <<interface>>
+  + Visit(e: ElementA)
+  + Visit(e: ElementB)
+}
+
+class ConcreteVisitor {
+  ...
+  + Visit(e: ElementA)
+  + Visit(e: ElementB)
+}
+
+class Element {
+  <<interface>>
+  + Accept(v: Visitor)
+}
+
+class ElementA {
+  ...
+  + FeatureA()
+  + Accept(v: Visitor)
+}
+
+class ElementB {
+  ...
+  + FeatureB()
+  + Accept(v: Visitor)
+}
+
+class Client
+
+Client ..> Element
+Client ..> ConcreteVisitor
+
+Visitor <|.. ConcreteVisitor
+Element <|.. ElementA
+Element <|.. ElementB
+
+ElementA <.. Visitor
+Element ..> Visitor
+ElementB <.. Visitor
 ```
