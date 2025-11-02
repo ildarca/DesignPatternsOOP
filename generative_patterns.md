@@ -2,25 +2,336 @@
 
 Паттерны отвечают за удобное и безопасное создание новых объектов или даже целых семейт объектов.
 
-<!-- <details>
-<summary> -->
-  Factory Method
-<!-- </summary> -->
+## Factory Method
 
-Фабричный метод - это порождающий паттерн проектирования, который определяет общий интерфейс для создания объектов в суперклассе, позволяя подклассам изменять тип создаваемых объектов.
+<details>
+<summary>
+  Определение
+</summary>
 
-Проблема
+**Фабричный метод** - это порождающий паттерн проектирования, который определяет общий интерфейс для создания объектов в суперклассе, позволяя подклассам изменять тип создаваемых объектов.
 
-Решение
+</details>
 
-<!-- </details> -->
+<details>
+<summary>
+  Проблема
+</summary>
+
+Представьте мы разрабатываем программу для компании, которая занимается грузоперевозками. Изначально компания работала только с автомобильными перевозками — товары доставлялись грузовиками по дорогам. Вся система была заточена под этот тип транспорта.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+class Logistic {
+  + PlanDelivery()
+}
+
+class Truck {
+  + Deliver()
+}
+
+Logistic --> Truck
+```
+
+```pseudocode
+// система логистики
+class Logistic {
+  method PlanDelivery() {
+    truck = new Truck()
+    truck.Deliver()
+  }
+}
+
+// автомобиль
+class Truck {
+  method Deliver() {
+    Print("Доставка груза грузовиком")
+  }
+}
+
+// Использование
+logistic = new Logistic()
+logistic.PlanDelivery()
+```
+
+Со временем бизнес расширился. Появилась необходимость в морских перевозках для международных заказов, затем в авиаперевозках для срочных доставок, а позже — в железнодорожных перевозках для крупных партий товаров.
+
+```pseudocode
+// Система логистики
+class Logistic {
+  method PlanDelivery(transport_type) {
+    if (transport_type == "truck") {
+      truck = new Truck()
+      truck.Deliver()
+    } else if (transport_type == "ship") {
+      ship = new Ship()
+      ship.Deliver()
+    } else if (transport_type == "airplane") {
+      airplane = new Airplane()
+      airplane.Deliver()
+    } else if (transport_type == "train") {
+      train = new Train()
+      train.Deliver()
+    }
+  }
+}
+
+// Различные виды транспорта
+class Truck {
+  method Deliver() {
+    Print("Доставка груза грузовиком по дороге")
+  }
+}
+
+class Ship {
+  method Deliver() {
+    Print("Доставка груза кораблем по морю")
+  }
+}
+
+class Airplane {
+  method Deliver() {
+    Print("Доставка груза самолетом по воздуху")
+  }
+}
+
+class Train {
+  method Deliver() {
+    Print("Доставка груза поездом по железной дороге")
+  }
+}
+
+// Использование
+logistic = new Logistic()
+logistic.PlanDelivery("truck")    // Доставка груза грузовиком по дороге
+logistic.PlanDelivery("ship")     // Доставка груза кораблем по морю
+logistic.PlanDelivery("airplane") // Доставка груза самолетом по воздуху
+logistic.PlanDelivery("train")    // Доставка груза поездом по железной дороге
+```
+
+Каждый раз при добавлении нового типа транспорта разработчики приходится менять код, добавляя сложные условные конструкции для выбора подходящего транспорта.
+Основная логика планирования доставки оказывалась перегружена деталями создания конкретных видов транспорта. Система становилась хрупкой — любое изменение в одном типе перевозок могло случайно задеть другие. Тестирование усложнялось, поскольку невозможно было изолировать общую логику планирования от конкретных реализаций транспорта.
+
+</details>
+
+<details>
+<summary>
+  Решение
+</summary>
+
+Паттерн **Фабричный метод** предлагает вынести создание транспорта в отдельный метод. Основной класс логистики будет использовать этот метод для получения транспорта, не зная конкретного типа. Такой метод будем называть **фабричным**.
+
+Для каждого типа перевозок создается свой класс-наследник: автомобильная логистика, морская логистика, воздушная логистика и так далее. Каждый из этих классов переопределяет фабричный метод и возвращает соответствующий тип транспорта.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+class Logistic {
+  + PlanDelivery()
+  + CreateTransport()
+}
+
+class TruckLogistic {
+  ...
+  + CreateTransport()
+}
+
+class ShipLogistic {
+  ...
+  + CreateTransport()
+}
+
+class Truck {
+  ...
+  + Deliver()
+}
+
+class Ship {
+  ...
+  + Deliver()
+}
+
+Logistic <|-- TruckLogistic
+Logistic <|-- ShipLogistic
+
+TruckLogistic --> Truck
+ShipLogistic --> Ship
+```
+
+Для работы этой системы все возвращаемые объекты транспорта должны иметь общий интерфейс. Например, классы `Truck` и `Ship` реализуют интерфейс `Transport` с методом `Deliver()`. Каждый класс реализует этот метод по-своему: грузовики везут грузы по земле, а корабли — по морю. Для клиентского кода нет разницы между этими объектами, так как он работает с ними через общий интерфейс `Transport`. Важно лишь, что у объекта есть метод `Deliver()`, а как именно он работает — не имеет значения.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+class Logistic {
+  <<abstract>>
+  + PlanDelivery()
+  + CreateTransport()* Transport
+}
+
+class TruckLogistic {
+  ...
+  + CreateTransport() Transport
+}
+
+class ShipLogistic {
+  ...
+  + CreateTransport() Transport
+}
+
+class Truck {
+  ...
+  + Deliver()
+}
+
+class Ship {
+  ...
+  + Deliver()
+}
+
+class Transport {
+  <<interface>>
+  + Deliver()
+}
+
+Logistic <|-- TruckLogistic
+Logistic <|-- ShipLogistic
+
+Truck ..|> Transport
+Logistic ..> Transport
+Ship ..|> Transport
+
+TruckLogistic --> Truck
+ShipLogistic --> Ship
+```
+
+Посмотрим как это выглядит в коде:
+
+**Транспорт:**
+
+```pseudocode
+// Общий интерфейс для транспорта
+interface Transport {
+  method Deliver()
+}
+
+// Конкретные реализации транспорта
+class Truck implements Transport {
+  method Deliver() {
+    Print("Доставка груза по дороге")
+  }
+}
+
+class Ship implements Transport {
+  method Deliver() {
+    Print("Доставка груза по морю")
+  }
+}
+```
+
+**Логистика:**
+
+```pseudocode
+// Базовый класс логистики
+abstract class Logistic {
+  // Фабричный метод
+  abstract method CreateTransport() Transport
+
+  // Общая логика доставки
+  method PlanDelivery() {
+    transport = this.CreateTransport()
+    transport.Deliver()
+  }
+}
+
+// Конкретные создатели логистики
+class TruckLogistic extends Logistic {
+  method CreateTransport() Transport {
+    return new Truck()
+  }
+}
+
+class ShipLogistic extends Logistic {
+  method CreateTransport() Transport {
+    return new Ship()
+  }
+}
+```
+
+**Клиентский код:**
+
+```pseudocode
+// Используем автомобильную логистику
+truckLogistic = new TruckLogistic()
+truckLogistic.PlanDelivery()  // Доставка груза по дороге
+
+// Используем морскую логистику
+shipLogistic = new ShipLogistic()
+shipLogistic.PlanDelivery()   // Доставка груза по морю
+
+// Клиенту не важно, какая именно логистика используется
+// Все работают через общий интерфейс
+logistics = [new TruckLogistic(), new ShipLogistic()]
+for (logistic : logistics) {
+  logistic.PlanDelivery()
+}
+```
+
+</details>
+
+<details>
+<summary>
+  Общая диаграмма паттерна
+</summary>
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+class Creator {
+  <<abstract>>
+  + SomeOperation()
+  + CreateProduct()* Product
+}
+
+class ConcreteCreatorA {
+  + CreateProduct() Product
+}
+
+class ConcreteCreatorB {
+  + CreateProduct() Product
+}
+
+class Product {
+  <<interface>>
+  + DoStuff()
+}
+
+class ConcreteProductA {
+  + DoStuff()
+}
+
+class ConcreteProductB {
+  + DoStuff()
+}
+
+Creator <|-- ConcreteCreatorA
+Creator <|-- ConcreteCreatorB
+
+ConcreteProductA ..|> Product
+Creator ..> Product
+ConcreteProductB ..|> Product
+
+ConcreteCreatorA --> ConcreteProductA
+ConcreteCreatorB --> ConcreteProductB
+```
 
 <details>
 <summary>
   Abstract Factory
 </summary>
 
-Абстрактная фабрика - это порождающий паттерн проектирования, который позволяет создавать семейства связных объектов, не привязываясь к конкретным классам создаваемых объектов.
+**Абстрактная фабрика** - это порождающий паттерн проектирования, который позволяет создавать семейства связных объектов, не привязываясь к конкретным классам создаваемых объектов.
 
 <details>
 <summary>
