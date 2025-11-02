@@ -326,12 +326,18 @@ ConcreteCreatorA --> ConcreteProductA
 ConcreteCreatorB --> ConcreteProductB
 ```
 
+</details>
+
+## Abstract Factory
+
 <details>
 <summary>
-  Abstract Factory
+  Определение
 </summary>
 
 **Абстрактная фабрика** - это порождающий паттерн проектирования, который позволяет создавать семейства связных объектов, не привязываясь к конкретным классам создаваемых объектов.
+
+</details>
 
 <details>
 <summary>
@@ -372,11 +378,11 @@ Car* CreateSportsCar(string brand) {
 
 1. Клиент заказывает автомобили `BMW`, но получает Седан(BMW 5 Series), Внедорожник(Toypta RAV4), Спорткар(BMW M8). Клиент растроится. А ошибка произошла во время создания автомобилей:
 
-```cpp
-Car* sedan = CreateSedan("BMW");      // BMW 5 Series
-Car* suv = CreateSUV("Toyota");       // Toypta RAV4 - ОШИБКА!
-Car* sports = CreateSportsCar("BMW"); // BMW M8
-```
+    ```cpp
+    Car* sedan = CreateSedan("BMW");      // BMW 5 Series
+    Car* suv = CreateSUV("Toyota");       // Toypta RAV4 - ОШИБКА!
+    Car* sports = CreateSportsCar("BMW"); // BMW M8
+    ```
 
 2. Если мы захотим расширить парк машин, то придется изменять существующий код создания авто.
 3. Дублирование кода.
@@ -467,7 +473,10 @@ void ClientCode(CarFactory& factory) { // Любая фабрика: Toyota ил
 
 </details>
 
-**Общая диаграмма паттерна:**
+<details>
+<summary>
+Общая диаграмма паттерна
+</summary>
 
 ```plantuml
 @startuml
@@ -538,12 +547,16 @@ Client --> AbstractFactory
 
 </details>
 
+## Builder
+
 <details>
 <summary>
-  Builder
+  Определение
 </summary>
 
-Строитель - это порождающий паттерн проектирования, который позволяет создавать сложные объекты пошагово. Строитель дает возможность использовать один и тот же код строительства для получения разных представлений объектов.
+**Строитель** - это порождающий паттерн проектирования, который позволяет создавать сложные объекты пошагово. Строитель дает возможность использовать один и тот же код строительства для получения разных представлений объектов.
+
+</details>
 
 <details>
 <summary>
@@ -693,7 +706,10 @@ Car* premium_sports = director.ConstructPremiumPackage(sportscar_builder);
 
 </details>
 
-**Общая диаграмма паттерна:**
+<details>
+<summary>
+  Общая диаграмма паттерна
+</summary>
 
 ```mermaid
 %%{init: {'theme': 'dark'}}%%
@@ -752,12 +768,16 @@ ConcreteBuilder2 --> Product2
 
 </details>
 
+## Prototype
+
 <details>
 <summary>
-  Prototype
+  Определение
 </summary>
 
 Прототип - это порождающий паттерн проектирования, который позволяет создавать копии объектов, не вдаваясь в детали реализации.
+
+</details>
 
 <details>
 <summary>
@@ -979,7 +999,10 @@ function ClientCode() {
 
 </details>
 
-**Общая диаграмма паттерна без каталога:**
+<details>
+<summary>
+  Общая диаграмма паттерна  без каталога
+</summary>
 
 ```mermaid
 %%{init: {'theme': 'dark'}}%%
@@ -1013,7 +1036,12 @@ ConcretePrototype <|-- SubclassPrototype
 note for Client "copy = existing.Clone()"
 ```
 
-**Общая диаграмма паттерна с каталогом:**
+</details>
+
+<details>
+<summary>
+  Общая диаграмма паттерна с каталогом
+</summary>
 
 ```mermaid
 %%{init: {'theme': 'dark'}}%%
@@ -1056,13 +1084,16 @@ note for Client "copy = existing.Clone()"
 
 </details>
 
+## Singleton
 
 <details>
 <summary>
-  Singleton
+  Определение
 </summary>
 
-Одиночка - это порождающий паттерн проектирования, который гарантирует, что у класса будет только один экземпляр, и предоставляет глобальную точку доступа.
+**Одиночка** - это порождающий паттерн проектирования, который гарантирует, что у класса будет только один экземпляр, и предоставляет глобальную точку доступа.
+
+</details>
 
 <details>
 <summary>
@@ -1209,10 +1240,13 @@ class PaymentService {
 
 </details>
 
-**Общая диаграмма паттерна:**
+<details>
+<summary>
+  Общая диаграмма паттерна
+</summary>
 
 ```mermaid
-%%{init: {'theme': 'dark'}}%%
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
 classDiagram
 
 class Client {
