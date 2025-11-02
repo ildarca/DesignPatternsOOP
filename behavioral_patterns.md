@@ -1899,7 +1899,412 @@ State
 **Состояние** — это поведенческий паттерн проектирования, который позволяет объектам менять поведение в зависимости от своего состояния. Извне создаётся впечатление, что изменился класс объекта.
 
 Проблема
+
+Для начала рассмотрим что такое машина состояний (Finite State Machine - FSM).
+
+Машина состояний состоит из конечного числа состояний, переходов между ними и событий, которые контролируют эти переходы. В разных состояниях программа может реагировать по разному на одни и те же события. Рассмотрим машину состояний для игры "Змейка":
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+stateDiagram-v2
+
+[*] --> Start
+Start --> Spawn
+Spawn --> Move
+Move --> Eat
+Eat --> Move
+Move --> Pause
+Pause --> Move
+Move --> GameOver
+Move --> Win
+GameOver --> Spawn
+Win --> Spawn
+GameOver --> [*] : exit
+Pause --> [*] : exit
+Win --> [*] : exit
+```
+
+Данная диаграмма описывает полный жизненный цикл игры через состояния и переходы между ними:
+
+**Основные состояния:**
+
+- **Start** - начальное состояние игры, инициализация ресурсов
+- **Spawn** - появление змейки и яблока на игровом поле
+- **Move** - основное игровое состояние, движение змейки
+- **Eat** - состояние обработки поедания яблока
+- **Pause** - игра на паузе
+- **GameOver** - завершение игры из-за проигрыша
+- **Win** - завершение игры из-за победы
+
+**Логика переходов:**
+
+1. **Start → Spawn** - после инициализации игра переходит к созданию игровых объектов
+2. **Spawn → Move** - после появления объектов начинается игровой процесс
+3. **Move → Eat** и **Eat → Move** - змейка съедает яблоко и игра продолжается
+4. **Move → Pause** и **Pause → Move** - игрок ставит игру на паузу и возобновляет её с паузы
+5. **Move → GameOver** - змейка врезается в стену или себя
+6. **Move → Win** - достижение победного условия (например, заполнение всего поля)
+7. **GameOver → Spawn** и **Win → Spawn**- рестарт игры после завершения
+8. **GameOver → exit**, **Pause → exit** и **Win → exit** - полный выход из игры
+
+Обычно машину состояний строят через условные операторы `if` или `switch`, которые проверяют текущее состояние и выполняют какое-то поведение. Для змейки это будет выглядить следующим образом:
+
+**Класс игры Змейка:**
+
+```peudocode
+class SnakeGame {
+  private field current_state: String = "Start"
+  private field score: int = 0
+  private field snake: Snake
+  private field apple: Apple
+  private field is_running: boolean = true
+
+  function FSM() {
+    while (this.is_running) {
+      switch (this.current_state) {
+        case "Start":
+          this.HandleStartState()
+          break
+        case "Spawn":
+          this.HandleSpawnState()
+          break
+        case "Move":
+          this.HandleMoveState()
+          break
+        case "Eat":
+          this.HandleEatState()
+          break
+        case "Pause":
+          this.HandlePauseState()
+          break
+        case "GameOver":
+          this.HandleGameOverState()
+          break
+        case "Win":
+          this.HandleWinState()
+          break
+      }
+      this.Render()
+    }
+  }
+
+  function handleStartState() {
+    // Инициализация ресурсов
+    this.initializeGame()
+    this.current_state = "Spawn"
+  }
+
+  function handleSpawnState() {
+    // Создание змейки и яблока
+    this.snake = new Snake()
+    this.apple = this.GenerateApple()
+    this.current_state = "Move"
+  }
+
+  function handleMoveState() {
+    input = this.GetInput()
+
+    // Обработка ввода
+    if (input == "PAUSE") {
+      this.current_state = "Pause"
+      return
+    }
+
+    // Движение змейки
+    this.snake.move(input)
+
+    // Проверка столкновений
+    if (this.CheckWallCollision() || this.CheckSelfCollision()) {
+      this.current_state = "GameOver"
+      return
+    }
+
+    // Проверка победы
+    if (this.CheckWinCondition()) {
+      this.current_state = "Win"
+      return
+    }
+
+    // Проверка съедания яблока
+    if (this.CheckAppleCollision()) {
+      this.current_state = "Eat"
+      return
+    }
+  }
+
+  function HandleEatState() {
+    // Обработка съедания яблока
+    this.score += 10
+    this.snake.grow()
+    this.apple = this.GenerateApple()
+    this.current_state = "Move"
+  }
+
+  function HandlePauseState() {
+    input = this.GetInput()
+
+    if (input == "RESUME") {
+      this.current_state = "Move"
+    } else if (input == "EXIT") {
+      this.is_running = false
+    }
+  }
+
+  function HandleGameOverState() {
+    input = this.GetInput()
+
+    if (input == "RESTART") {
+      this.ResetGame()
+      this.current_state = "Spawn"
+    } else if (input == "EXIT") {
+      this.is_running = false
+    }
+  }
+
+  function HandleWinState() {
+    input = this.GetInput()
+
+    if (input == "RESTART") {
+      this.ResetGame()
+      this.current_state = "Spawn"
+    } else if (input == "EXIT") {
+      this.is_running = false
+    }
+  }
+
+  function processInput(input: String) {
+    // Обработка глобального ввода (выход из игры)
+    if (input == "QUIT") {
+      this.is_running = false
+    }
+  }
+}
+```
+
+**Использование:**
+
+```pseudocode
+game = new SnakeGame()
+game.FSM()
+```
+
+**Проблема такой реализации:**
+Каждое состояние содержит свою логику обработки ввода, обновления и отрисовки, что приводит к сложному коду с множеством условных операторов, проверяющих текущее состояние игры. Такой код сложен в поддержке. При добавлении нового состояния (например, ускорение змейки при нажатии пробела) нам придется перелопатить весь существующий код.
+
 Решение
+
+**Контекст** — это объект, поведение которого должно изменяться в зависимости от состояния. В нашем случае контекстом является класс `SnakeGame`.
+
+Паттерн Состояние предлагает вынести каждое состояние и соответствующее ему поведение в отдельный класс с общим интерфейсом. Вместо одного большого класса-контекста с множеством условий мы создаем иерархию классов состояний. Контекст будет содержать ссылку на текущий объект-состояние и делегировать ему всю работу. Его поведение можно изменить в любой момент, подключив другой объект-состояние.
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+class SnakeGame {
+  - current_state: GameState
+  - score: int
+  - snake: Snake
+  - apple: Apple
+  - is_running: boolean
+  + setState(state: GameState)
+  + HandleInput(input: String)
+  + Update()
+  + Render()
+}
+
+class GameState {
+  <<interface>>
+  + HandleInput(game: SnakeGame, input: String)
+  + Update(game: SnakeGame)
+  + Render(game: SnakeGame)
+}
+
+class StartState {
+  + HandleInput(game: SnakeGame, input: String)
+  + Update(game: SnakeGame)
+  + Render(game: SnakeGame)
+}
+
+class SpawnState {
+  + HandleInput(game: SnakeGame, input: String)
+  + Update(game: SnakeGame)
+  + Render(game: SnakeGame)
+}
+
+class MoveState {
+  + HandleInput(game: SnakeGame, input: String)
+  + Update(game: SnakeGame)
+  + Render(game: SnakeGame)
+}
+
+class EatState {
+  + HandleInput(game: SnakeGame, input: String)
+  + Update(game: SnakeGame)
+  + Render(game: SnakeGame)
+}
+
+class PauseState {
+  + HandleInput(game: SnakeGame, input: String)
+  + Update(game: SnakeGame)
+  + Render(game: SnakeGame)
+}
+
+class GameOverState {
+  + HandleInput(game: SnakeGame, input: String)
+  + Update(game: SnakeGame)
+  + Render(game: SnakeGame)
+}
+
+class WinState {
+  + HandleInput(game: SnakeGame, input: String)
+  + Update(game: SnakeGame)
+  + Render(game: SnakeGame)
+}
+
+SnakeGame --> GameState
+GameState <|.. StartState
+GameState <|.. SpawnState
+GameState <|.. MoveState
+GameState <|.. EatState
+GameState <|.. PauseState
+GameState <|.. GameOverState
+GameState <|.. WinState
+```
+
+**Псведокод:**
+
+**Состояния:**
+
+```pseudocode
+// Интерфейс состояния
+interface GameState {
+  method HandleInput(game: SnakeGame, input: String)
+  method Update(game: SnakeGame)
+  method Render(game: SnakeGame)
+}
+
+// Конкретные состояния
+class StartState implements GameState {
+  method HandleInput(game: SnakeGame, input: String) {
+    // Можно начать игру по нажатию пробела
+    if (input == "SPACE") {
+      game.SetState(new SpawnState())
+    }
+  }
+
+  method Update(game: SnakeGame) {
+    // Инициализация игры
+    game.Initialize()
+  }
+
+  method Render(game: SnakeGame) {
+    // Отрисовка стартового экрана
+  }
+}
+
+class MoveState implements GameState {
+  method HandleInput(game: SnakeGame, input: String) {
+    if (input == "PAUSE") {
+      game.SetState(new PauseState())
+    } else {
+      game.Snake.ChangeDirection(input)
+    }
+  }
+
+  method Update(game: SnakeGame) {
+    game.Snake.Move()
+
+    if (game.CheckCollision()) {
+      game.SetState(new GameOverState())
+    } else if (game.CheckWin()) {
+      game.SetState(new WinState())
+    } else if (game.CheckAppleEaten()) {
+      game.SetState(new EatState())
+    }
+  }
+
+  method Render(game: SnakeGame) {
+    // Отрисовка игрового процесса
+  }
+}
+
+// и т.д.
+```
+
+**Контекст:**
+
+```pseudocode
+class SnakeGame {
+  private field current_state: GameState = new StartState()
+  private field score: int = 0
+  private field snake: Snake
+  private field apple: Apple
+  private field is_running: boolean = true
+
+  method SetState(state: GameState) {
+    this.current_state = state
+  }
+
+  method HandleInput(input: String) {
+    this.current_state.HandleInput(this, input)
+  }
+
+  method Update() {
+    this.current_state.Update(this)
+  }
+
+  method Render() {
+    this.current_state.Render(this)
+  }
+
+  method Run() {
+    while (this.is_running) {
+      input = this.GetInput()
+      this.HandleInput(input)
+      this.Update()
+      this.Render()
+    }
+  }
+}
+```
+
+Теперь добавление нового состояния становится простой задачей.
+
+**Общая диаграмма паттерна:**
+
+```mermaid
+%%{init: {'theme': 'dark', 'class': {'hideEmptyMembersBox': true}}}%%
+classDiagram
+
+class Client
+
+class Context {
+  - state: State
+  + Context(initial_state: State)
+  + ChangeState(state: State)
+  + DoThis()
+  + DoThat()
+}
+
+class State {
+  <<interface>>
+  + DoThis()
+  + DoThat()
+}
+
+class ConcreteStates {
+  - context: Context
+  + SetContext(context: Context)
+  + DoThis()
+  + DoThat()
+}
+
+Client --> Context
+Client ..> ConcreteStates
+ConcreteStates --> Context
+Context o--> State
+State <|.. ConcreteStates
+```
 
 Strategy
 **Стратегия** — это поведенческий паттерн проектирования, который определяет семейство схожих алгоритмов и помещает каждый из них в собственный класс, после чего алгоритмы можно взаимозаменять прямо во время исполнения программы
@@ -1907,14 +2312,29 @@ Strategy
 Проблема
 Решение
 
+**Общая диаграмма паттерна:**
+
+```mermaid
+```
+
 Template Method
 **Шаблонный метод** — это поведенческий паттерн проектирования, который определяет скелет алгоритма, перекладывая ответственность за некоторые его шаги на подклассы. Паттерн позволяет подклассам переопределять шаги алгоритма, не меняя его общей структуры.
 
 Проблема
 Решение
 
+**Общая диаграмма паттерна:**
+
+```mermaid
+```
+
 Visitor
 **Посетитель** — это поведенческий паттерн проектирования, который позволяет добавлять в программу новые операции, не изменяя классы объектов, над которыми эти операции могут выполняться.
 
 Проблема
 Решение
+
+**Общая диаграмма паттерна:**
+
+```mermaid
+```
